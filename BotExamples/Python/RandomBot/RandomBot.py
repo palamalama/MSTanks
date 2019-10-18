@@ -181,7 +181,6 @@ GameServer.sendMessage(ServerMessageTypes.CREATETANK, {'Name': args.name})
 i=0
 while True:
 	message = GameServer.readMessage()
-	print('this is running')
     
 	if i == 5:
 		if random.randint(0, 10) > 5:
@@ -196,4 +195,5 @@ while True:
 	i = i + 1
 	if i > 20:
 		i = 0
+
 
