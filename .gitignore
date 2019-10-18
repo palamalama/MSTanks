@@ -9,3 +9,5 @@ BotExamples/Scala/ScalaBot/\.idea/
 BotExamples/Scala/ScalaBot/target/
 
 BotExamples/Scala/ScalaBot/project/
+
+MSTankServer/*
