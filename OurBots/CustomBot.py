@@ -247,6 +247,7 @@ class GlobalState():
 		self.healthPickups = {}
 		self.health = {}
 		self.last_refresh = current_milli_time()
+		self.kill = {}
 	
 	def take_message(self, message):
 		# this method incorporates a message into the global state
@@ -263,6 +264,9 @@ class GlobalState():
 				self.healthPickups[message["Id"]] = message
 			elif message["messageType"] == 26:
 				print(message)
+			elif message["messageType"] == 24:
+				self.kill[message["Id"]] = message
+#			else
 		except:
 			print("############ MESSAGE NOT PROCESSED ###############")
 			print(message)
@@ -297,11 +301,24 @@ def tankController(stream, name):
 	while True:
 		for key in global_state.friends.keys():
 			if global_state.friends[key]["Name"] == name:
-				if global_state.enemies != {}:
+				if 
+                
+                elif global_state.enemies != {}:  
+                    
+                    #tracks and SHOOTS the enemy
+					k_en, v_en = list(global_state.enemies.items())[0]
+					v_us = global_state.friends[key]
+					info = PolarCoordinates(v_us,v_en)
+					print(info)
+					stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':int(info['angle'])})
+					stream.sendMessage(ServerMessageTypes.FIRE)
+                    
+                    #tracks and FOLLOW the enemy
 					nearestEnemy = NearestThing(global_state.friends[key],global_state.enemies) 
 					GoToLocation(stream,global_state.friends[key],global_state.enemies[nearestEnemy])
-				else:
-					GoToLocation(stream,global_state.friends[key],{"X":0,"Y":0})
+				
+#                else:
+#					GoToLocation(stream,global_state.friends[key],{"X":0,"Y":0})
 		time.sleep(0.3)
 
 	
@@ -319,27 +336,27 @@ FrankThread = threading.Thread(target=tankController, args=(GameServer1,"BigJeff
 FrankThread.start()
 AmyThread = threading.Thread(target=tankController, args=(GameServer2,"BigJeff:Amy",))
 AmyThread.start()
-BertThread = threading.Thread(target=tankController, args=(GameServer3,"Bert",))
+BertThread = threading.Thread(target=tankController, args=(GameServer3,"BigJeff:Bert",))
 BertThread.start()
-ChrisThread = threading.Thread(target=tankController, args=(GameServer4,"Chris",))
+ChrisThread = threading.Thread(target=tankController, args=(GameServer4,"BigJeff:Chris",))
 ChrisThread.start()
 
 def main():
 	while True:
-	#		GameServer.sendMessage(ServerMessageTypes.TURNTOHEADING, {'Amount': str((["TurretHeading"] + 20)%360)})
-#		print(sorted(["Name: {0:s}, X: {1:.2f}, Y: {2:.2f}".format(v["Name"], v["X"], v["Y"]) for k, v in list(global_state.enemies.items())]))
-#		print(sorted(["Name: {0:s}, X: {1:.2f}, Y: {2:.2f}".format(v["Name"], v["X"], v["Y"]) for k, v in list(global_state.friends.items())]))
-		
-		if not list(global_state.enemies.items()):
-			pass
-		else:
-			k_en, v_en = list(global_state.enemies.items())[0]
-			k_us, v_us = list(global_state.friends.items())[0]
-			info = polarCoordinates(v_us,v_en)
-			print(info)
-			GameServer1.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':int(info['angle'])})
-			GameServer1.sendMessage(ServerMessageTypes.FIRE)
-            
+#	#		GameServer.sendMessage(ServerMessageTypes.TURNTOHEADING, {'Amount': str((["TurretHeading"] + 20)%360)})
+##		print(sorted(["Name: {0:s}, X: {1:.2f}, Y: {2:.2f}".format(v["Name"], v["X"], v["Y"]) for k, v in list(global_state.enemies.items())]))
+##		print(sorted(["Name: {0:s}, X: {1:.2f}, Y: {2:.2f}".format(v["Name"], v["X"], v["Y"]) for k, v in list(global_state.friends.items())]))
+#		
+#		if not list(global_state.enemies.items()):
+#			pass
+#		else:
+#			k_en, v_en = list(global_state.enemies.items())[0]
+#			k_us, v_us = list(global_state.friends.items())[0]
+#			info = polarCoordinates(v_us,v_en)
+#			print(info)
+#			GameServer1.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':int(info['angle'])})
+#			GameServer1.sendMessage(ServerMessageTypes.FIRE)
+#            
             
 		time.sleep(0.1)
 
