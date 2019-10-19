@@ -13,6 +13,7 @@ import time
 current_milli_time = lambda: int(round(time.time() * 1000))
 import sys
 
+
 class ServerMessageTypes(object):
 	TEST = 0
 	CREATETANK = 1
@@ -202,6 +203,8 @@ def polarCoordinates(origin,target):
 	print("your angle:", angle)
 	return {"distance":distance,"angle":angle}
 
+
+
 # Connect to game server
 GameServer1 = ServerComms(args.hostname, args.port)
 GameServer2 = ServerComms(args.hostname, args.port)
@@ -222,6 +225,7 @@ class GlobalState():
 		self.enemies = {}
 		self.friends = {}
 		self.ammoPickups = {}
+		self.healthPickups = {}
 		self.health = {}
 		self.last_refresh = current_milli_time()
 	
@@ -234,6 +238,13 @@ class GlobalState():
 					self.friends[message["Id"]] = message
 				else:
 					self.enemies[message["Id"]] = message
+                    
+			elif message["Type"] == "AmmoPickup":
+				self.ammoPickups[message["Id"]] = message
+			elif message["Type"] == "HealthPickup":
+				self.healthPickups[message["Id"]] = message
+			elif message["messageType"] == 26:
+				print(message)
 			else:
 				print("############ MESSAGE NOT PARSED ###############")
 				print(message)
@@ -336,5 +347,5 @@ def main():
 # 		print(sorted(["Name: {0:s}, X: {1:.2f}, Y: {2:.2f}".format(v["Name"], v["X"], v["Y"]) for k, v in list(global_state.friends.items())]))
 		time.sleep(0.1)
 
-main()
 
+main()

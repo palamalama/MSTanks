@@ -8,7 +8,7 @@ import struct
 import argparse
 import random
 import time
-
+import math
 class ServerMessageTypes(object):
 	TEST = 0
 	CREATETANK = 1
@@ -78,7 +78,7 @@ class ServerMessageTypes(object):
 		else:
 			return "??UNKNOWN??"
 
-
+class 
 class ServerComms(object):
 	'''
 	TCP comms handler
@@ -154,7 +154,23 @@ class ServerComms(object):
 			binascii.hexlify(message)))
 		return self.ServerSocket.send(message)
 
+def getHeading(x1, y1, x2, y2):
+    heading = math.atan2(y2 - y1, x2 - x1)
+    heading = radianToDegree(heading)
+    heading = (heading - 360) % 360
+    return np.abs(heading)
 
+def radianToDegree(angle):
+    return angle * (180.0 / math.pi);
+
+def calculateDistance(ownX, ownY, otherX, otherY):
+    headingX = otherX - ownX
+    headingY = otherY - ownY
+    return np.sqrt((headingX * headingX) + (headingY * headingY))
+
+def getPickup(tank,pickup):
+    
+    
 # Parse command line args
 parser = argparse.ArgumentParser()
 parser.add_argument('-d', '--debug', action='store_true', help='Enable debug output')
@@ -176,17 +192,24 @@ GameServer = ServerComms(args.hostname, args.port)
 # Spawn our tank
 logging.info("Creating tank with name '{}'".format(args.name))
 GameServer.sendMessage(ServerMessageTypes.CREATETANK, {'Name': args.name})
-
+healthpickup1 = 0
+healthpickup2 = 0
+ammopickup1 = 0
+ammopickup2 = 0
 # Main loop - read game messages, ignore them and randomly perform actions
-Friendly = ['Jeff:RandomBot']
-Objects = ['Tank', 'Ammo', 'HealthPickup']
+friendlyList = ['Jeff:RandomBot']
+pickupsList = ['Ammo', 'HealthPickup']
 i=0
 while True:
 	message = GameServer.readMessage()
-	print(message)
+    print(message)
 	try:
-		if message.get('Type') in Objects and message.get('Name') not in Friendly:
-			print('yes')
+        objectType = message.get('Type')
+		if objectType in pickupsList:
+			if objectType == Ammo:
+                ammopickup1 = ammopickup2
+                ammopickup2 = message
+            
 			#GameServer.sendMessage(ServerMessageTypes.MOVEFORWARDDISTANCE, {'Amount': 25})
 			#time.sleep(0.1)
 		else:
