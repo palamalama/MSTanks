@@ -184,7 +184,7 @@ def PolarCoordinates(origin,target):
 	if(deltaY != 0):
 		if deltaX<0:
 			if deltaY>0:
-				angle = (180+math.atan(deltaY/-deltaX)*180/math.pi + 360)%360
+				angle = (180+math.atan(deltaY/-deltaX)*180/math.pi )%360
 			else:	
 				angle = (90+math.atan(-deltaX/-deltaY)*180/math.pi )%360
 		else:
@@ -202,9 +202,9 @@ def PolarCoordinates(origin,target):
 
 def GoToLocation(gameServer,origin, destination):
 	coordinates = PolarCoordinates(origin,destination)
-	#print("my coordinates",origin["X"],origin["Y"])
-	#print("origin, heading",origin["Heading"])
-	#print("desired heading",coordinates["angle"])
+	print("my coordinates",origin["X"],origin["Y"])
+	print("origin, heading",origin["Heading"])
+	print("desired heading",coordinates["angle"])
 	if(coordinates["distance"] <= 3):
 		gameServer.sendMessage(ServerMessageTypes.STOPMOVE)
 		return True
@@ -221,26 +221,6 @@ def NearestThing(origin,thingsDict):
 		distances.append(distance)
 	min_idx = np.argmin(distances)
 	return list(thingsDict.keys())[min_idx]
-
-#Ollie note: This is the targetting script me and connor were working on 
-
-def enemyPosition(target):
-    x = target["X"]
-    y= target["Y"]
-    return x,y
-def HitMoving(gameserver, origin, target):
-    x = origin["X"] #get our tanks position
-    y = origin["Y"]
-    xt1,yt1 = enemyPosition(target) #get enemy position
-    time.sleep(0.4)
-    xt2, yt2 = enemyPosition(target)
-    direction = (yt2-yt1)/(xt2-xt1) #get direction of energy tank
-    tankv = 9.4628 # tank speed 
-    bulletv = 25 #bullet speed
-    t = ((bulletv*(xt1 - x)) + (2*tankv *(np.sin(direction))*(yt1-y)))/(bulletv*tankv*np.cos(direction)-(bulletv**2)+(tankv**2)*((np.sin(direction))**2)) #get value of t
-    tanalpha = (tankv*t*np.sin(direction)- (yt1-y))/(tankv*t*np.cos(direction)-(xt1-x)) #get tan alpha, which is the estimate of the tan of the angle that the tank needs to rotate from the angle between it and the enemy in order to hit 
-    alpha = np.arctan(tanalpha) * 180/np.pi #alpha, the angle the tank needs to rotate to hit the moving enemy tank
-    return alpha
 
 # Connect to game server
 GameServer1 = ServerComms(args.hostname, args.port)
@@ -272,8 +252,6 @@ class GlobalState():
 			args.team+":Chris":False,
 			"":False
 		}
-		self.time = {} #instantiate time dict so we can count down to snitch release
-		self.snitch = {} #instantiate snitch location dict
 	
 	def take_message(self, message, sender=""):
 		# this method incorporates a message into the global state
@@ -284,22 +262,16 @@ class GlobalState():
 					self.friends[message["Id"]] = message
 				else:
 					self.enemies[message["Id"]] = message
-			elif message.get("Type",0) == "SNITCHAPPEARED": #when snitch appears print the message 
-				print('snitch')
-				print(message)
-				#self.snitch[message["Id"]] = message
 			elif message.get("Type",0) == "AmmoPickup":
 				self.ammoPickups[message["Id"]] = message
 			elif message.get("Type",0) == "HealthPickup":
 				self.healthPickups[message["Id"]] = message
 			elif message.get("messageType",0) == 24:
 				self.kills[sender] = True
-			elif message.get("messageType",0) == 26:
-				self.time[message["Time"]] = message
 			else:
 				pass
 				print("###################### MESSAGE #################")
-				#print(message)
+				print(message)
 		except:
 			pass
 # 			print("############ MESSAGE NOT PROCESSED ###############")
@@ -312,7 +284,7 @@ class GlobalState():
 		self.dictPrune(self.ammoPickups)
 		self.dictPrune(self.health)
 				
-	def dictPrune(self, dictionary, data_ttl = 800): #Prune this faster. The server sends a message every 0.345 seconds so this constitutes about 2 messages 
+	def dictPrune(self, dictionary, data_ttl = 1000):
 		for key, val in list(dictionary.items()): 
 			if val["timestamp"] + data_ttl < current_milli_time():
 				del dictionary[key]
@@ -322,6 +294,35 @@ global_state = GlobalState()
 def search_alg(stream, tank):
 	at_center = GoToLocation(stream,tank,{"X":0,"Y":0})
 	stream.sendMessage(ServerMessageTypes.TOGGLETURRETLEFT)
+
+def friendly_dist():
+	"""
+	Input: none 
+	Returns: 1x6 vector of the distance with every tank with other tanks
+	"""
+	v_all = list(global_state.friends.values()) #take all info about tanks
+	
+	#dictionary for each tank
+	tank1 = v_all[0]
+	tank2 = v_all[1]
+	tank3 = v_all[2]
+	tank4 = v_all[3]
+	
+	#get coords of every tank
+	x1, y1 = tank1['X'], tank1['Y']
+	x2, y2 = tank2['X'], tank2['Y']
+	x3, y3 = tank3['X'], tank3['Y']
+	x4, y4 = tank4['X'], tank4['Y']
+	
+	#create arrays to find cartesian distance between each tank
+	a= np.array([x2,x3,x4,x3,x4,x4])
+	b= np.array([x1,x1,x1,x2,x2,x3])
+	c= np.array([y2,y3,y4,y3,y4,y4])
+	d= np.array([y1,y1,y1,y2,y2,y3])
+
+	#find euclidean distance between each tank with every other tank
+	dist = np.sqrt((a-b)**2+(c-d)**2)
+	return dist, v_all
 
 
 #ACTUAL GAME AFTER INITIALISATION
@@ -334,21 +335,12 @@ def GetInfo(stream,name):
 		global_state.take_message(message,name)
 		global_state.prune()
 		delta = current_milli_time() - start
-#my random search algorithm
-def randomsearch_ollie(stream, tank):
-    x = np.random.randint(50,75)
-    y = np.random.randint(-30, 30)
-    coordinates = {"X":x, "Y":y}
-    GoToLocation(stream,tank,coordinates)
-    stream.sendMessage(ServerMessageTypes.TOGGLETURRETLEFT)
-    
+		
 def tankController(stream, name):
 	print("starting Tank Controller")
 	while True:
 		for key in list(global_state.friends.keys()):
 			if global_state.friends[key]["Name"] == name:
-                #if global_state.time["time"] < 120 and global_state.ammoPickups != {}:
-					#GoToLocation(stream,global_state.friends[key],global_state.snitch["snitch"])
 				if global_state.kills[name]:
 					## If you have killed go score the point
 					goals = {1:{"X":0,"Y":110},2:{"X":0,"Y":-110}}
@@ -366,18 +358,37 @@ def tankController(stream, name):
 				elif global_state.enemies != {}:  
 					## If there are emenies go get them!
 					#tracks and SHOOTS the enemy
-					nearest_enemy = NearestThing(global_state.friends[key],global_state.enemies)
-					info = PolarCoordinates(global_state.friends[key],global_state.enemies[nearest_enemy])
+					k_en, v_en = list(global_state.enemies.items())[0]
+					v_us = global_state.friends[key]
+					info = PolarCoordinates(v_us,v_en)
 					stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':int(info['angle'])})
-					stream.sendMessage(ServerMessageTypes.FIRE)
 					#tracks and FOLLOW the enemy
-					nearestEnemy = NearestThing(global_state.friends[key],global_state.enemies)
-					#Ollie note: added another statement here just incase an update has happened
-                    stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':int(info['angle'])})
-					GoToLocation(stream,global_state.friends[key],global_state.enemies[nearestEnemy])
+					if info['distance']>20:
+						print('.....TRACK....')
+						nearestEnemy = NearestThing(global_state.friends[key],global_state.enemies)
+						GoToLocation(stream,global_state.friends[key],global_state.enemies[nearestEnemy])
+					else:
+						print('.....STOP+FIRE....')
+						stream.sendMessage(ServerMessageTypes.STOPMOVE)
+						stream.sendMessage(ServerMessageTypes.FIRE)
+					
+					# make the friendly tanks anti-bunch
+					dist, v_all = friendly_dist()
+					if min(dist)<20:
+						ind=np.argmin(dist)
+						tank_pairs = np.array([[1,0],[2,0],[3,0],[2,1],[3,1],[3,2]])
+						close_pair = tank_pairs[ind]
+						
+						if name == v_all[close_pair[0]]['Name']:
+							stream.sendMessage(ServerMessageTypes.TURNTOHEADING, {'Amount':((v_all[close_pair[0]]['Heading']+20) % 360)})
+							print('modified path of tank: {} by {}'.format(v_all[close_pair[0]]['Name'], (v_all[close_pair[0]]['Heading']+10) % 360))
+						if name == v_all[close_pair[1]]['Name']:
+							stream.sendMessage(ServerMessageTypes.TURNTOHEADING, {'Amount':((v_all[close_pair[1]]['Heading']+340) % 360)})
+							print('modified path of tank: {} by {}'.format(v_all[close_pair[1]]['Name'], (v_all[close_pair[0]]['Heading']+350) % 360))
+
+						
 				else:
-					#random search algorithm 
-                    randomsearch_ollie(stream, global_state.friends[key])
+					search_alg(stream, global_state.friends[key])
 				
 #                else:
 #					GoToLocation(stream,global_state.friends[key],{"X":0,"Y":0})
