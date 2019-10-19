@@ -8,8 +8,6 @@ import struct
 import argparse
 import random
 
-import csv
-
 
 class ServerMessageTypes(object):
 	TEST = 0
@@ -162,9 +160,9 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-d', '--debug', action='store_true', help='Enable debug output')
 parser.add_argument('-H', '--hostname', default='127.0.0.1', help='Hostname to connect to')
 parser.add_argument('-p', '--port', default=8052, type=int, help='Port to connect to')
-# parser.add_argument('-p2', '--port2', default=8053, type=int, help='Port to connect to')
+parser.add_argument('-p2', '--port2', default=8053, type=int, help='Port to connect to')
 parser.add_argument('-n', '--name', default='TeamA:RandomBot', help='Name of bot')
-# parser.add_argument('-n2', '--name2', default='TeamA:RandomBot2', help='Name of bot')
+parser.add_argument('-n2', '--name2', default='TeamA:RandomBot2', help='Name of bot')
 args = parser.parse_args()
 
 # Set up console logging
@@ -176,13 +174,13 @@ else:
 
 # Connect to game server
 GameServer = ServerComms(args.hostname, args.port)
-# GameServer2 = ServerComms(args.hostname, args.port)
+GameServer2 = ServerComms(args.hostname, args.port)
 
 # Spawn our tank
 logging.info("Creating tank with name '{}'".format(args.name))
-# logging.info("Creating tank with name '{}'".format(args.name2))
+logging.info("Creating tank with name '{}'".format(args.name2))
 GameServer.sendMessage(ServerMessageTypes.CREATETANK, {'Name': args.name})
-# GameServer2.sendMessage(ServerMessageTypes.CREATETANK, {'Name': args.name2})
+GameServer2.sendMessage(ServerMessageTypes.CREATETANK, {'Name': args.name2})
 
 # Main loop - read game messages, ignore them and randomly perform actions
 i=0
@@ -193,10 +191,6 @@ while True:
 		if random.randint(0, 10) > 5:
 			logging.info("Firing")
 			GameServer.sendMessage(ServerMessageTypes.FIRE)
-			logging.info(message['Ammo'])
-			with open('coms.csv', 'a') as fcsv:
-				csvwriter = csv.writer(fcsv, delimiter=' ')
-				csvwriter.writerow(['Ammo',args.name,message['Ammo']])
 	elif i == 10:
 		logging.info("Turning randomly")
 		GameServer.sendMessage(ServerMessageTypes.TURNTOHEADING, {'Amount': random.randint(0, 359)})
