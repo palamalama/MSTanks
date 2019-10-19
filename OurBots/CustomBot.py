@@ -331,8 +331,6 @@ def randomsearch_ollie(gameserver):
     coordinates = coordinates[pick]
     coordinates = {"X":str(coordinates[0]), "Y":coordinates[1]}
     GoToLocation(gameserver, gameserver.friends,coordinates)
-
-randomsearch_ollie(GameServer1)
     
 def tankController(stream, name):
 	print("starting Tank Controller")
