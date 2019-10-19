@@ -268,18 +268,16 @@ t3 = threading.Thread(target=GetInfo, args=(GameServer3,))
 t3.start()
 t4 = threading.Thread(target=GetInfo, args=(GameServer4,))
 t4.start()
-state = "ROTATE"
 
 def print_separator():
 	print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
 
 def main():
 	while True:
-	#		GameServer.sendMessage(ServerMessageTypes.TURNTOHEADING, {'Amount': str((["TurretHeading"] + 20)%360)})
+		GameServer.sendMessage(ServerMessageTypes.TURNTOHEADING, {'Amount': str((["TurretHeading"] + 20)%360)})
 		print(sorted(["Name: {0:s}, X: {1:.2f}, Y: {2:.2f}".format(v["Name"], v["X"], v["Y"]) for k, v in list(global_state["tanks"].items())]))
 		time.sleep(0.1)
 
-<<<<<<< HEAD:OurBots/Random.py
 main()
 """
 message = {}
@@ -314,6 +312,3 @@ while True:
 	Move() 
 
 """
-=======
-main()
->>>>>>> 4fcbe9ba244c142ea1dc1d8cc2139ad8397d13cc:OurBots/CustomBot.py
