@@ -212,6 +212,18 @@ def GoToLocation(gameServer,origin, destination):
 	gameServer.sendMessage(ServerMessageTypes.TOGGLEFORWARD)
 	return False
 
+def NearestThing(origin,thingsDict):
+	closestDistance = 0
+	closestKey = ""
+	for key in thingsDict.keys():
+		deltaX = -origin["X"] + thingsDict[key]["X"]
+		deltaY = -origin["Y"] + thingsDict[key]["Y"]
+		distance = math.sqrt(deltaX*deltaX+deltaY*deltaY)
+		if(distance <= closestDistance):
+			closestDistance = distance
+			closestKey = key
+	return key
+
 # Connect to game server
 GameServer1 = ServerComms(args.hostname, args.port)
 GameServer2 = ServerComms(args.hostname, args.port)
@@ -285,7 +297,11 @@ def tankController(stream, name):
 	while True:
 		for key in global_state.friends.keys():
 			if global_state.friends[key]["Name"] == name:
-				GoToLocation(stream,global_state.friends[key],{"X":0,"Y":0})
+				if global_state.enemies != {}:
+					nearestEnemy = NearestThing(global_state.friends[key],global_state.enemies) 
+					GoToLocation(stream,global_state.friends[key],global_state.enemies[nearestEnemy])
+				else:
+					GoToLocation(stream,global_state.friends[key],{"X":0,"Y":0})
 		time.sleep(0.3)
 
 	
