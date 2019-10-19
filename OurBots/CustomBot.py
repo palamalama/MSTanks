@@ -12,7 +12,7 @@ import time
 
 current_milli_time = lambda: int(round(time.time() * 1000))
 import sys
-from curses import wrapper
+#from curses import wrapper
 
 class ServerMessageTypes(object):
 	TEST = 0
@@ -316,12 +316,25 @@ def print_separator():
 def main():
 	while True:
 	#		GameServer.sendMessage(ServerMessageTypes.TURNTOHEADING, {'Amount': str((["TurretHeading"] + 20)%360)})
-		print(sorted(["Name: {0:s}, X: {1:.2f}, Y: {2:.2f}".format(v["Name"], v["X"], v["Y"]) for k, v in list(global_state.enemies.items())]))
-		print(sorted(["Name: {0:s}, X: {1:.2f}, Y: {2:.2f}".format(v["Name"], v["X"], v["Y"]) for k, v in list(global_state.friends.items())]))
+#		print(sorted(["Name: {0:s}, X: {1:.2f}, Y: {2:.2f}".format(v["Name"], v["X"], v["Y"]) for k, v in list(global_state.enemies.items())]))
+#		print(sorted(["Name: {0:s}, X: {1:.2f}, Y: {2:.2f}".format(v["Name"], v["X"], v["Y"]) for k, v in list(global_state.friends.items())]))
+		
+		if not list(global_state.enemies.items()):
+			pass
+		else:
+			k_en, v_en = list(global_state.enemies.items())[0]
+			k_us, v_us = list(global_state.friends.items())[0]
+			info = polarCoordinates(v_us,v_en)
+			print(info)
+			GameServer1.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':int(info['angle'])})
+			GameServer1.sendMessage(ServerMessageTypes.FIRE)
+            
+            
 		time.sleep(0.1)
 
-<<<<<<< HEAD:OurBots/Random.py
 main()
+
+
 """
 message = {}
 resources = []
@@ -353,8 +366,7 @@ while True:
 	
 	NearestResource()
 	Move() 
-
 """
-=======
-main()
->>>>>>> 4fcbe9ba244c142ea1dc1d8cc2139ad8397d13cc:OurBots/CustomBot.py
+
+
+
