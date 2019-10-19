@@ -325,14 +325,14 @@ def GetInfo(stream,name):
 		global_state.prune()
 		delta = current_milli_time() - start
 	
-def randomcoords_ollie(gameserver, origin, destination):
-    coordinates = np.array([0,75], [35,0], [-35,0], [0,-50])
+def randomsearch_ollie(gameserver):
+    coordinates = np.array(([0,75], [35,0], [-35,0], [0,-50]))
     pick = np.random.randint(0,4)
     coordinates = coordinates[pick]
     coordinates = {"X":str(coordinates[0]), "Y":coordinates[1]}
-    return coordinates
+    GoToLocation(gameserver, gameserver.friends,coordinates)
 
-#coords = randomcoords_ollie(GameServer1, global_state.friends, global_state.destination)
+randomsearch_ollie(GameServer1)
     
 def tankController(stream, name):
 	print("starting Tank Controller")
