@@ -165,7 +165,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-d', '--debug', action='store_true', help='Enable debug output')
 parser.add_argument('-H', '--hostname', default='127.0.0.1', help='Hostname to connect to')
 parser.add_argument('-p', '--port', default=8052, type=int, help='Port to connect to')
-parser.add_argument('-n', '--name', default='SEXY:I_KNOW_IT', help='Name of bot')
+parser.add_argument('-t', '--team', default='BIGJEFF', help='Bot Team')
 args = parser.parse_args()
 
 # Set up console logging
@@ -229,11 +229,11 @@ GameServer3 = ServerComms(args.hostname, args.port)
 GameServer4 = ServerComms(args.hostname, args.port)
 
 # Spawn our tank
-logging.info("Creating tank with name '{}'".format(args.name))
-GameServer1.sendMessage(ServerMessageTypes.CREATETANK, {'Name': "BigJeff:Frank"})
-GameServer2.sendMessage(ServerMessageTypes.CREATETANK, {'Name': "BigJeff:Amy"})
-GameServer3.sendMessage(ServerMessageTypes.CREATETANK, {'Name': "BigJeff:Bert"})
-GameServer4.sendMessage(ServerMessageTypes.CREATETANK, {'Name': "BigJeff:Chris"})
+print("Creating Tank Team: " + args.team)
+GameServer1.sendMessage(ServerMessageTypes.CREATETANK, {'Name': args.team+":Frank"})
+GameServer2.sendMessage(ServerMessageTypes.CREATETANK, {'Name': args.team+":Amy"})
+GameServer3.sendMessage(ServerMessageTypes.CREATETANK, {'Name': args.team+":Bert"})
+GameServer4.sendMessage(ServerMessageTypes.CREATETANK, {'Name': args.team+":Chris"})
 
 input_streams = [GameServer1,GameServer2,GameServer3,GameServer4]
 
@@ -246,10 +246,10 @@ class GlobalState():
 		self.health = {}
 		self.last_refresh = current_milli_time()
 		self.kills = {
-			"BigJeff:Frank":False,
-			"BigJeff:Amy":False,
-			"BigJeff:Bert":False,
-			"BigJeff:Chris":False,
+			args.team+":Frank":False,
+			args.team+":Amy":False,
+			args.team+":Bert":False,
+			args.team+":Chris":False,
 			"":False
 		}
 	
@@ -258,7 +258,7 @@ class GlobalState():
 		message["timestamp"] = current_milli_time()
 		try:
 			if message.get("Type",0) == "Tank":
-				if message["Name"].split(":")[0] == "BigJeff":
+				if message["Name"].split(":")[0] == args.team:
 					self.friends[message["Id"]] = message
 				else:
 					self.enemies[message["Id"]] = message
@@ -344,23 +344,23 @@ def tankController(stream, name):
 		time.sleep(0.3)
 
 	
-t1 = threading.Thread(target=GetInfo, args=(GameServer1,"BigJeff:Frank",))
+t1 = threading.Thread(target=GetInfo, args=(GameServer1,args.team+":Frank",))
 t1.start()
-t2 = threading.Thread(target=GetInfo, args=(GameServer2,"BigJeff:Amy",))
+t2 = threading.Thread(target=GetInfo, args=(GameServer2,args.team+":Amy",))
 t2.start()
-t3 = threading.Thread(target=GetInfo, args=(GameServer3,"BigJeff:Bert",))
+t3 = threading.Thread(target=GetInfo, args=(GameServer3,args.team+":Bert",))
 t3.start()
-t4 = threading.Thread(target=GetInfo, args=(GameServer4,"BigJeff:Chris",))
+t4 = threading.Thread(target=GetInfo, args=(GameServer4,args.team+":Chris",))
 t4.start()
 
 # Tank threads
-FrankThread = threading.Thread(target=tankController, args=(GameServer1,"BigJeff:Frank",))
+FrankThread = threading.Thread(target=tankController, args=(GameServer1,args.team+":Frank",))
 FrankThread.start()
-AmyThread = threading.Thread(target=tankController, args=(GameServer2,"BigJeff:Amy",))
+AmyThread = threading.Thread(target=tankController, args=(GameServer2,args.team+":Amy",))
 AmyThread.start()
-BertThread = threading.Thread(target=tankController, args=(GameServer3,"BigJeff:Bert",))
+BertThread = threading.Thread(target=tankController, args=(GameServer3,args.team+":Bert",))
 BertThread.start()
-ChrisThread = threading.Thread(target=tankController, args=(GameServer4,"BigJeff:Chris",))
+ChrisThread = threading.Thread(target=tankController, args=(GameServer4,args.team+":Chris",))
 ChrisThread.start()
 
 def main():
