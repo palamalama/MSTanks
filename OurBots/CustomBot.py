@@ -291,6 +291,10 @@ class GlobalState():
 	
 global_state = GlobalState()
 
+def search_alg(stream, tank):
+	at_center = GoToLocation(stream,tank,{"X":0,"Y":0})
+	stream.sendMessage(ServerMessageTypes.TOGGLETURRETLEFT)
+
 
 #ACTUAL GAME AFTER INITIALISATION
 import threading
@@ -315,29 +319,26 @@ def tankController(stream, name):
 					arrived = GoToLocation(stream,global_state.friends[key],goals[nearest_goal])
 					if arrived:
 						global_state.kills[name] = False
-				elif (global_state.friends[key]["Ammo"] == 0): # and (global_state.ammoPickups != {}):
+				elif (global_state.friends[key]["Ammo"] == 0) and (global_state.ammoPickups != {}):
 					## If you have no ammo and know where ammo is go get it
 					nearest_ammo = NearestThing(global_state.friends[key],global_state.ammoPickups)
 					GoToLocation(stream,global_state.friends[key],global_state.ammoPickups[nearest_ammo])
-# 				elif (global_state.friends[key]["Ammo"] == 0) and (global_state.ammoPickups == {}):
-# 					## If you have no ammo, but don't know where ammo is make a random search
-# # 					GoToLocation(stream,global_state.friends[key],{"X":np.random.randint(-50,50),"Y":np.random.randint(-50,50)})
-# 					print("Performing random search")
-# 					GameServer.sendMessage(ServerMessageTypes.TURNTOHEADING, {'Amount': random.randint(0, 359)})
-# 					GameServer.sendMessage(ServerMessageTypes.MOVEFORWARDDISTANCE, {'Amount': random.randint(0, 10)})
+				elif (global_state.friends[key]["Ammo"] == 0) and (global_state.ammoPickups == {}):
+					## If you have no ammo, but don't know where ammo is make a random search
+					search_alg(stream, global_state.friends[key])
+				elif global_state.enemies != {}:  
+					## If there are emenies go get them!
+					#tracks and SHOOTS the enemy
+					k_en, v_en = list(global_state.enemies.items())[0]
+					v_us = global_state.friends[key]
+					info = PolarCoordinates(v_us,v_en)
+					stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':int(info['angle'])})
+					stream.sendMessage(ServerMessageTypes.FIRE)
+					#tracks and FOLLOW the enemy
+					nearestEnemy = NearestThing(global_state.friends[key],global_state.enemies) 
+					GoToLocation(stream,global_state.friends[key],global_state.enemies[nearestEnemy])
 				else:
-					if global_state.enemies != {}:  
-						## If there are emenies go get them!
-						#tracks and SHOOTS the enemy
-						k_en, v_en = list(global_state.enemies.items())[0]
-						v_us = global_state.friends[key]
-						info = PolarCoordinates(v_us,v_en)
-						stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':int(info['angle'])})
-						stream.sendMessage(ServerMessageTypes.FIRE)
-
-						#tracks and FOLLOW the enemy
-						nearestEnemy = NearestThing(global_state.friends[key],global_state.enemies) 
-						GoToLocation(stream,global_state.friends[key],global_state.enemies[nearestEnemy])
+					search_alg(stream, global_state.friends[key])
 				
 #                else:
 #					GoToLocation(stream,global_state.friends[key],{"X":0,"Y":0})
