@@ -187,11 +187,52 @@ GameServer4.sendMessage(ServerMessageTypes.CREATETANK, {'Name': "BigJeff:Chris"}
 
 input_streams = [GameServer1,GameServer2,GameServer3,GameServer4]
 
-global_state = {
-	"tanks":{},
-	"ammoPickups":{},
-	"healthPickups":{}
-}
+class GlobalState():
+	def __init__(self):
+		self.enemies = {}
+		self.friends = {}
+		self.ammoPickups = {}
+		self.health = {}
+		self.last_refresh = current_milli_time()
+	
+	def take_message(self, message):
+		# this method incorporates a message into the global state
+		message["timestamp"] = current_milli_time()
+		try:
+			if message["Type"] == "Tank":
+				if message["Name"].split(":")[0] == "BigJeff":
+					self.friends[message["Id"]] = message
+				else:
+					self.enemies[message["Id"]] = message
+			else:
+				print("############ MESSAGE NOT PARSED ###############")
+				print(message)
+				print("###############################################")
+# 			elif message["Type"] == "AmmoPickup":
+		# 		print("Ammo message:", message)
+		# 		message["timestamp"] = current_milli_time()
+		# 		global_state["ammoPickups"].append(message)
+		# 	elif message_type == "HealthPickup":
+		# 		print("Health pickup message:", message)
+		# 		message["timestamp"] = current_milli_time()
+		# 		global_state["healthPickups"].append(message)
+		except:
+			print("############ MESSAGE NOT PROCESSED ###############")
+			print(message)
+			print("##################################################")
+	
+	def prune(self):
+		self.dictPrune(self.friends)
+		self.dictPrune(self.enemies)
+		self.dictPrune(self.ammoPickups)
+		self.dictPrune(self.health)
+				
+	def dictPrune(self, dictionary, data_ttl = 400):
+		for key, val in list(dictionary.items()): 
+			if val["timestamp"] + data_ttl < current_milli_time():
+				del dictionary[key]
+	
+global_state = GlobalState()
 
 
 def messageToGlobal(message):
@@ -224,8 +265,8 @@ def GetInfo(stream):
 	while True:
 		start = current_milli_time()
 		message = stream.readMessage()
-		messageToGlobal(message)
-		pruneGlobalState()
+		global_state.take_message(message)
+		global_state.prune()
 		delta = current_milli_time() - start
 
 
@@ -237,7 +278,6 @@ t3 = threading.Thread(target=GetInfo, args=(GameServer3,))
 t3.start()
 t4 = threading.Thread(target=GetInfo, args=(GameServer4,))
 t4.start()
-state = "ROTATE"
 
 def print_separator():
 	print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
@@ -245,7 +285,8 @@ def print_separator():
 def main():
 	while True:
 	#		GameServer.sendMessage(ServerMessageTypes.TURNTOHEADING, {'Amount': str((["TurretHeading"] + 20)%360)})
-		print(sorted(["Name: {0:s}, X: {1:.2f}, Y: {2:.2f}".format(v["Name"], v["X"], v["Y"]) for k, v in list(global_state["tanks"].items())]))
+		print(sorted(["Name: {0:s}, X: {1:.2f}, Y: {2:.2f}".format(v["Name"], v["X"], v["Y"]) for k, v in list(global_state.enemies.items())]))
+		print(sorted(["Name: {0:s}, X: {1:.2f}, Y: {2:.2f}".format(v["Name"], v["X"], v["Y"]) for k, v in list(global_state.friends.items())]))
 		time.sleep(0.1)
 
 main()
