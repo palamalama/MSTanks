@@ -8,7 +8,7 @@ import struct
 import argparse
 import random
 import time
-#import numpy as np
+import numpy as np
 
 current_milli_time = lambda: int(round(time.time() * 1000))
 import sys
@@ -224,6 +224,24 @@ def NearestThing(origin,thingsDict):
 			closestKey = key
 	return key
 
+def enemyPosition(target):
+    x = target["X"]
+    y= target["Y"]
+    return x,y
+def HitMoving(gameserver, origin, target):
+    x = origin["X"]
+    y = origin["Y"]
+    xt1,yt1 = enemyPosition(target)
+    time.sleep(0.4)
+    xt2, yt2 = enemyPosition(target)
+    direction = (yt2-yt1)/(xt2-xt1)
+    tankv = 9.4628
+    bulletv = 10
+    t = ((bulletv*(xt1 - x)) + (2*tankv *(np.sin(direction))*(yt1-y)))/(bulletv*tankv*np.cos(direction)-(bulletv**2)+(tankv**2)*((np.sin(direction))**2))
+    tanalpha = (tankv*t*np.sin(direction)- (yt1-y))/(tankv*t*np.cos(direction)-(xt1-x))
+    alpha = np.arctan(tanalpha) * 180/np.pi
+    return alpha
+
 # Connect to game server
 GameServer1 = ServerComms(args.hostname, args.port)
 GameServer2 = ServerComms(args.hostname, args.port)
@@ -253,6 +271,7 @@ class GlobalState():
 		# this method incorporates a message into the global state
 		message["timestamp"] = current_milli_time()
 		try:
+			print(message)
 			if message["Type"] == "Tank":
 				if message["Name"].split(":")[0] == "BigJeff":
 					self.friends[message["Id"]] = message
@@ -295,7 +314,16 @@ def GetInfo(stream):
 		global_state.take_message(message)
 		global_state.prune()
 		delta = current_milli_time() - start
-		
+	
+def randomcoords_ollie(gameserver, origin, destination):
+    coordinates = np.array([0,75], [35,0], [-35,0], [0,-50])
+    pick = np.random.randint(0,4)
+    coordinates = coordinates[pick]
+    coordinates = {"X":str(coordinates[0]), "Y":coordinates[1]}
+    return coordinates
+
+coords = randomcoords_ollie(GameServer1, global_state.friends, global_state.destination)
+    
 def tankController(stream, name):
 	print("starting Tank Controller")
 	while True:
