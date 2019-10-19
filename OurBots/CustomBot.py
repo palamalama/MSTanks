@@ -13,6 +13,7 @@ import time
 current_milli_time = lambda: int(round(time.time() * 1000))
 import sys
 
+
 class ServerMessageTypes(object):
 	TEST = 0
 	CREATETANK = 1
@@ -231,6 +232,7 @@ class GlobalState():
 		self.enemies = {}
 		self.friends = {}
 		self.ammoPickups = {}
+		self.healthPickups = {}
 		self.health = {}
 		self.last_refresh = current_milli_time()
 	
@@ -243,18 +245,12 @@ class GlobalState():
 					self.friends[message["Id"]] = message
 				else:
 					self.enemies[message["Id"]] = message
-			#else:
-				#print("############ MESSAGE NOT PARSED ###############")
-				#print(message)
-				#print("###############################################")
-# 			elif message["Type"] == "AmmoPickup":
-		# 		print("Ammo message:", message)
-		# 		message["timestamp"] = current_milli_time()
-		# 		global_state["ammoPickups"].append(message)
-		# 	elif message_type == "HealthPickup":
-		# 		print("Health pickup message:", message)
-		# 		message["timestamp"] = current_milli_time()
-		# 		global_state["healthPickups"].append(message)
+			elif message["Type"] == "AmmoPickup":
+				self.ammoPickups[message["Id"]] = message
+			elif message["Type"] == "HealthPickup":
+				self.healthPickups[message["Id"]] = message
+			elif message["messageType"] == 26:
+				print(message)
 		except:
 			print("############ MESSAGE NOT PROCESSED ###############")
 			print(message)
@@ -273,30 +269,6 @@ class GlobalState():
 	
 global_state = GlobalState()
 
-
-def messageToGlobal(message):
-	try:
-		message_type = message["Type"]
-		if message_type == "Tank":
-			message["timestamp"] = current_milli_time()
-			global_state["tanks"][message["Id"]] = message
-	# 	elif message_type == "AmmoPickup":
-	# 		print("Ammo message:", message)
-	# 		message["timestamp"] = current_milli_time()
-	# 		global_state["ammoPickups"].append(message)
-	# 	elif message_type == "HealthPickup":
-	# 		print("Health pickup message:", message)
-	# 		message["timestamp"] = current_milli_time()
-	# 		global_state["healthPickups"].append(message)
-	except:
-		print(message)
-		
-def pruneGlobalState(data_ttl = 400):         # 0.5 seconds time to live
-	for k in global_state.keys():
-		for key, val in list(global_state[k].items()):
-			if val["timestamp"] + data_ttl < current_milli_time():
-				del global_state[k][key]
-
 #ACTUAL GAME AFTER INITIALISATION
 import threading
 def GetInfo(stream):
@@ -307,6 +279,14 @@ def GetInfo(stream):
 		global_state.take_message(message)
 		global_state.prune()
 		delta = current_milli_time() - start
+		
+def tankController(stream, name):
+	print("starting Tank Controller")
+	while True:
+		for key in global_state.friends.keys():
+			if global_state.friends[key]["Name"] == name:
+				GoToLocation(stream,global_state.friends[key],{"X":0,"Y":0})
+		time.sleep(0.3)
 
 	
 t1 = threading.Thread(target=GetInfo, args=(GameServer1,))
@@ -318,13 +298,19 @@ t3.start()
 t4 = threading.Thread(target=GetInfo, args=(GameServer4,))
 t4.start()
 
+# Tank threads
+FrankThread = threading.Thread(target=tankController, args=(GameServer1,"BigJeff:Frank",))
+FrankThread.start()
+AmyThread = threading.Thread(target=tankController, args=(GameServer2,"BigJeff:Amy",))
+AmyThread.start()
+BertThread = threading.Thread(target=tankController, args=(GameServer3,"Bert",))
+BertThread.start()
+ChrisThread = threading.Thread(target=tankController, args=(GameServer4,"Chris",))
+ChrisThread.start()
+
 def main():
 	while True:
-		for key in global_state.friends.keys():
-			if global_state.friends[key]["Name"] == "BigJeff:Frank":
-				GoToLocation(GameServer1,global_state.friends[key],{"X":0,"Y":0})
-			#if global_state.friends[key]["Name"] == "BigJeff:Amy":
-			#	GoToLocation(GameServer2,global_state.friends[key],{"X":100,"Y":0})
-		time.sleep(0.3)
-		
+		time.sleep(0.1)
+
+
 main()
