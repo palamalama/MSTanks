@@ -202,6 +202,9 @@ def PolarCoordinates(origin,target):
 
 def GoToLocation(gameServer,origin, destination):
 	coordinates = PolarCoordinates(origin,destination)
+	print("my coordinates",origin["X"],origin["Y"])
+	print("origin, heading",origin["Heading"])
+	print("desired heading",coordinates["angle"])
 	if(coordinates["distance"] <= 3):
 		gameServer.sendMessage(ServerMessageTypes.STOPMOVE)
 		return True
@@ -218,35 +221,6 @@ def NearestThing(origin,thingsDict):
 		distances.append(distance)
 	min_idx = np.argmin(distances)
 	return list(thingsDict.keys())[min_idx]
-
-def NoFriendlyFire(tankKey):
-	tankInfo = global_state.friends[tankKey]
-	for key in global_state.friends.keys():
-		if(key != tankKey):
-			coordinates = PolarCoordinates(tankInfo,global_state.friends[key])
-			angle = math.sqrt((coordinates["angle"]-tankInfo["TurretHeading"])**2)
-			requiredAngle = math.atan(10/(coordinates["distance"]-4.5))*180/math.pi
-			if angle < requiredAngle : 
-				return False
-	return True
-
-def enemyPosition(target):
-    x = target["X"]
-    y= target["Y"]
-    return x,y
-def HitMoving(gameserver, origin, target):
-    x = origin["X"]
-    y = origin["Y"]
-    xt1,yt1 = enemyPosition(target)
-    time.sleep(0.4)
-    xt2, yt2 = enemyPosition(target)
-    direction = (yt2-yt1)/(xt2-xt1)
-    tankv = 9.4628
-    bulletv = 10
-    t = ((bulletv*(xt1 - x)) + (2*tankv *(np.sin(direction))*(yt1-y)))/(bulletv*tankv*np.cos(direction)-(bulletv**2)+(tankv**2)*((np.sin(direction))**2))
-    tanalpha = (tankv*t*np.sin(direction)- (yt1-y))/(tankv*t*np.cos(direction)-(xt1-x))
-    alpha = np.arctan(tanalpha) * 180/np.pi
-    return alpha
 
 # Connect to game server
 GameServer1 = ServerComms(args.hostname, args.port)
@@ -332,14 +306,7 @@ def GetInfo(stream,name):
 		global_state.take_message(message,name)
 		global_state.prune()
 		delta = current_milli_time() - start
-	
-def randomsearch_ollie(gameserver):
-    coordinates = np.array(([0,75], [35,0], [-35,0], [0,-50]))
-    pick = np.random.randint(0,4)
-    coordinates = coordinates[pick]
-    coordinates = {"X":str(coordinates[0]), "Y":coordinates[1]}
-    GoToLocation(gameserver, gameserver.friends,coordinates)
-    
+		
 def tankController(stream, name):
 	print("starting Tank Controller")
 	while True:
@@ -362,11 +329,11 @@ def tankController(stream, name):
 				elif global_state.enemies != {}:  
 					## If there are emenies go get them!
 					#tracks and SHOOTS the enemy
-					nearest_enemy = NearestThing(global_state.friends[key],global_state.enemies)
-					info = PolarCoordinates(global_state.friends[key],global_state.enemies[nearest_enemy])
+					k_en, v_en = list(global_state.enemies.items())[0]      # THIS SHOULD BE CHANGED!!!!!!!!!! GET NEAREST!!!!!
+					v_us = global_state.friends[key]
+					info = PolarCoordinates(v_us,v_en)
 					stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':int(info['angle'])})
-					if NoFriendlyFire(key):
-						stream.sendMessage(ServerMessageTypes.FIRE)
+					stream.sendMessage(ServerMessageTypes.FIRE)
 					#tracks and FOLLOW the enemy
 					nearestEnemy = NearestThing(global_state.friends[key],global_state.enemies) 
 					GoToLocation(stream,global_state.friends[key],global_state.enemies[nearestEnemy])

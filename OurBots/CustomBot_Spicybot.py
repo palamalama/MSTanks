@@ -202,6 +202,9 @@ def PolarCoordinates(origin,target):
 
 def GoToLocation(gameServer,origin, destination):
 	coordinates = PolarCoordinates(origin,destination)
+	#print("my coordinates",origin["X"],origin["Y"])
+	#print("origin, heading",origin["Heading"])
+	#print("desired heading",coordinates["angle"])
 	if(coordinates["distance"] <= 3):
 		gameServer.sendMessage(ServerMessageTypes.STOPMOVE)
 		return True
@@ -218,17 +221,6 @@ def NearestThing(origin,thingsDict):
 		distances.append(distance)
 	min_idx = np.argmin(distances)
 	return list(thingsDict.keys())[min_idx]
-
-def NoFriendlyFire(tankKey):
-	tankInfo = global_state.friends[tankKey]
-	for key in global_state.friends.keys():
-		if(key != tankKey):
-			coordinates = PolarCoordinates(tankInfo,global_state.friends[key])
-			angle = math.sqrt((coordinates["angle"]-tankInfo["TurretHeading"])**2)
-			requiredAngle = math.atan(10/(coordinates["distance"]-4.5))*180/math.pi
-			if angle < requiredAngle : 
-				return False
-	return True
 
 def enemyPosition(target):
     x = target["X"]
@@ -310,7 +302,7 @@ class GlobalState():
 		self.dictPrune(self.ammoPickups)
 		self.dictPrune(self.health)
 				
-	def dictPrune(self, dictionary, data_ttl = 1000):
+	def dictPrune(self, dictionary, data_ttl = 800):
 		for key, val in list(dictionary.items()): 
 			if val["timestamp"] + data_ttl < current_milli_time():
 				del dictionary[key]
@@ -333,12 +325,12 @@ def GetInfo(stream,name):
 		global_state.prune()
 		delta = current_milli_time() - start
 	
-def randomsearch_ollie(gameserver):
-    coordinates = np.array(([0,75], [35,0], [-35,0], [0,-50]))
-    pick = np.random.randint(0,4)
-    coordinates = coordinates[pick]
-    coordinates = {"X":str(coordinates[0]), "Y":coordinates[1]}
-    GoToLocation(gameserver, gameserver.friends,coordinates)
+def randomsearch_ollie(stream, tank):
+    x = np.random.randint(-30,-10)
+    y = np.random.randint(-30, 30)
+    coordinates = {"X":x, "Y":y}
+    GoToLocation(stream,tank,coordinates)
+    stream.sendMessage(ServerMessageTypes.TOGGLETURRETLEFT)
     
 def tankController(stream, name):
 	print("starting Tank Controller")
@@ -365,13 +357,13 @@ def tankController(stream, name):
 					nearest_enemy = NearestThing(global_state.friends[key],global_state.enemies)
 					info = PolarCoordinates(global_state.friends[key],global_state.enemies[nearest_enemy])
 					stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':int(info['angle'])})
-					if NoFriendlyFire(key):
-						stream.sendMessage(ServerMessageTypes.FIRE)
+					stream.sendMessage(ServerMessageTypes.FIRE)
 					#tracks and FOLLOW the enemy
-					nearestEnemy = NearestThing(global_state.friends[key],global_state.enemies) 
+					nearestEnemy = NearestThing(global_state.friends[key],global_state.enemies)
+					stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':int(info['angle'])})
 					GoToLocation(stream,global_state.friends[key],global_state.enemies[nearestEnemy])
 				else:
-					search_alg(stream, global_state.friends[key])
+					randomsearch_ollie(stream, global_state.friends[key])
 				
 #                else:
 #					GoToLocation(stream,global_state.friends[key],{"X":0,"Y":0})
