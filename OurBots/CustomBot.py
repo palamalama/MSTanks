@@ -202,9 +202,6 @@ def PolarCoordinates(origin,target):
 
 def GoToLocation(gameServer,origin, destination):
 	coordinates = PolarCoordinates(origin,destination)
-	print("my coordinates",origin["X"],origin["Y"])
-	print("origin, heading",origin["Heading"])
-	print("desired heading",coordinates["angle"])
 	if(coordinates["distance"] <= 3):
 		gameServer.sendMessage(ServerMessageTypes.STOPMOVE)
 		return True
@@ -221,6 +218,17 @@ def NearestThing(origin,thingsDict):
 		distances.append(distance)
 	min_idx = np.argmin(distances)
 	return list(thingsDict.keys())[min_idx]
+
+def NoFriendlyFire(tankKey):
+	tankInfo = global_state.friends[tankKey]
+	for key in global_state.friends.keys():
+		if(key != tankKey):
+			coordinates = PolarCoordinates(tankInfo,global_state.friends[key])
+			angle = math.sqrt((coordinates["angle"]-tankInfo["TurretHeading"])**2)
+			requiredAngle = math.atan(10/(coordinates["distance"]-4.5))*180/math.pi
+			if angle < requiredAngle : 
+				return False
+	return True
 
 def enemyPosition(target):
     x = target["X"]
@@ -360,7 +368,8 @@ def tankController(stream, name):
 					v_us = global_state.friends[key]
 					info = PolarCoordinates(v_us,v_en)
 					stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':int(info['angle'])})
-					stream.sendMessage(ServerMessageTypes.FIRE)
+					if NoFriendlyFire(key):
+						stream.sendMessage(ServerMessageTypes.FIRE)
 					#tracks and FOLLOW the enemy
 					nearestEnemy = NearestThing(global_state.friends[key],global_state.enemies) 
 					GoToLocation(stream,global_state.friends[key],global_state.enemies[nearestEnemy])
