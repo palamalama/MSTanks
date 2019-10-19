@@ -219,19 +219,24 @@ def pruneGlobalState(data_ttl = 400):         # 0.5 seconds time to live
 
 #ACTUAL GAME AFTER INITIALISATION
 import threading
-def GetInfo():
+def GetInfo(stream):
+	print("starting Info Thread")
 	while True:
 		start = current_milli_time()
-		for stream in input_streams:
-			message = stream.readMessage()
-			messageToGlobal(message)
-			pruneGlobalState()
-			delta = current_milli_time() - start
-			print("multi stream loop time {}ms".format(delta))
+		message = stream.readMessage()
+		messageToGlobal(message)
+		pruneGlobalState()
+		delta = current_milli_time() - start
 
 
-t1 = threading.Thread(target=GetInfo)
+t1 = threading.Thread(target=GetInfo, args=(GameServer1,))
 t1.start()
+t2 = threading.Thread(target=GetInfo, args=(GameServer2,))
+t2.start()
+t3 = threading.Thread(target=GetInfo, args=(GameServer3,))
+t3.start()
+t4 = threading.Thread(target=GetInfo, args=(GameServer4,))
+t4.start()
 state = "ROTATE"
 
 def print_separator():
@@ -239,47 +244,8 @@ def print_separator():
 
 def main():
 	while True:
-	#	if state == "ROTATE":	
 	#		GameServer.sendMessage(ServerMessageTypes.TURNTOHEADING, {'Amount': str((["TurretHeading"] + 20)%360)})
-# 		print_separator()
 		print(sorted(["Name: {0:s}, X: {1:.2f}, Y: {2:.2f}".format(v["Name"], v["X"], v["Y"]) for k, v in list(global_state["tanks"].items())]))
-# 		print(str([t["Name"] for t in global_state["tanks"]]), end='\r', flush=True)
-	# 	sys.stdout.write("Tanks detected:".format(list(info["Tank"].keys())))
-	# 	sys.stdout.flush()
-# 		stdscr.refresh()
-		time.sleep(0.5)
+		time.sleep(0.1)
 
 main()
-"""
-message = {}
-resources = []
-myInfo = {}
-def ResourceView():
-	global message 
-	global resources
-	if "Type" in message:
-		if message["Type"] == "AmmoPickup":
-			for resource in range(0,len(resources)):
-				if resource == message:
-					resources
-def Move():
-	global message 
-	if "Type" in message:
-		if "Name" in message:
-			if message["Name"] == 'SEXY:I_KNOW_IT': 
-				myInfo = message
-				if nearestResource != {}:
-					print("Chasing the ammo")
-					GameServer.sendMessage(ServerMessageTypes.TOGGLEFORWARD)
-				else:
-					GameServer.sendMessage(ServerMessageTypes.TURNTOHEADING, {'Amount': str((message["TurretHeading"] + 20)%360)})
-
-while True:
-	global message = GameServer.readMessage()
-	global message = GameServer.readMessage()
-
-	
-	NearestResource()
-	Move() 
-
-"""
