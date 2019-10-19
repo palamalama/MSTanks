@@ -12,7 +12,6 @@ import time
 
 current_milli_time = lambda: int(round(time.time() * 1000))
 import sys
-from curses import wrapper
 
 class ServerMessageTypes(object):
 	TEST = 0
@@ -175,33 +174,42 @@ else:
 	logging.basicConfig(format='[%(asctime)s] %(message)s', level=logging.INFO)
 
 
-def polarCoordinates(origin,target):
+def PolarCoordinates(origin,target):
 	deltaX = -origin["X"]+target["X"]
 	deltaY = -origin["Y"]+target["Y"]
 	
 	distance = math.sqrt(deltaX*deltaX + deltaY*deltaY)
-	print("your distance: ",distance)
 	angle = 0
-	print("dX:",deltaX,"dY:",deltaY)
 	if(deltaY != 0):
 		if deltaX<0:
 			if deltaY>0:
-				angle = (math.atan(-deltaX/deltaY)*180/math.pi + 360)%360
+				angle = (180+math.atan(deltaY/-deltaX)*180/math.pi + 360)%360
 			else:	
-				angle = (90+math.atan(-deltaY/-deltaX)*180/math.pi )%360
+				angle = (90+math.atan(-deltaX/-deltaY)*180/math.pi )%360
 		else:
 			if deltaY>0:
-				angle = (math.atan(-deltaX/deltaY)*180/math.pi + 360)%360
+				angle = (math.atan(deltaX/deltaY)*180/math.pi + 270)%360
 			else:	
-				angle = (180+math.atan(deltaX/-deltaY)*180/math.pi )%360
+				angle = (math.atan(deltaX/-deltaY)*180/math.pi )%360
 	else:
 		if deltaX > 0:
 			angle = 90
 		elif deltaX < 0: 
 			angle = 270
 
-	print("your angle:", angle)
 	return {"distance":distance,"angle":angle}
+
+def GoToLocation(gameServer,origin, destination):
+	coordinates = PolarCoordinates(origin,destination)
+	print("my coordinates",origin["X"],origin["Y"])
+	print("origin, heading",origin["Heading"])
+	print("desired heading",coordinates["angle"])
+	if(coordinates["distance"] <= 3):
+		gameServer.sendMessage(ServerMessageTypes.STOPMOVE)
+		return True
+	gameServer.sendMessage(ServerMessageTypes.TURNTOHEADING,{"Amount":coordinates["angle"]})
+	gameServer.sendMessage(ServerMessageTypes.TOGGLEFORWARD)
+	return False
 
 # Connect to game server
 GameServer1 = ServerComms(args.hostname, args.port)
@@ -218,11 +226,52 @@ GameServer4.sendMessage(ServerMessageTypes.CREATETANK, {'Name': "BigJeff:Chris"}
 
 input_streams = [GameServer1,GameServer2,GameServer3,GameServer4]
 
-global_state = {
-	"tanks":{},
-	"ammoPickups":{},
-	"healthPickups":{}
-}
+class GlobalState():
+	def __init__(self):
+		self.enemies = {}
+		self.friends = {}
+		self.ammoPickups = {}
+		self.health = {}
+		self.last_refresh = current_milli_time()
+	
+	def take_message(self, message):
+		# this method incorporates a message into the global state
+		message["timestamp"] = current_milli_time()
+		try:
+			if message["Type"] == "Tank":
+				if message["Name"].split(":")[0] == "BigJeff":
+					self.friends[message["Id"]] = message
+				else:
+					self.enemies[message["Id"]] = message
+			#else:
+				#print("############ MESSAGE NOT PARSED ###############")
+				#print(message)
+				#print("###############################################")
+# 			elif message["Type"] == "AmmoPickup":
+		# 		print("Ammo message:", message)
+		# 		message["timestamp"] = current_milli_time()
+		# 		global_state["ammoPickups"].append(message)
+		# 	elif message_type == "HealthPickup":
+		# 		print("Health pickup message:", message)
+		# 		message["timestamp"] = current_milli_time()
+		# 		global_state["healthPickups"].append(message)
+		except:
+			print("############ MESSAGE NOT PROCESSED ###############")
+			print(message)
+			print("##################################################")
+	
+	def prune(self):
+		self.dictPrune(self.friends)
+		self.dictPrune(self.enemies)
+		self.dictPrune(self.ammoPickups)
+		self.dictPrune(self.health)
+				
+	def dictPrune(self, dictionary, data_ttl = 400):
+		for key, val in list(dictionary.items()): 
+			if val["timestamp"] + data_ttl < current_milli_time():
+				del dictionary[key]
+	
+global_state = GlobalState()
 
 
 def messageToGlobal(message):
@@ -255,11 +304,11 @@ def GetInfo(stream):
 	while True:
 		start = current_milli_time()
 		message = stream.readMessage()
-		messageToGlobal(message)
-		pruneGlobalState()
+		global_state.take_message(message)
+		global_state.prune()
 		delta = current_milli_time() - start
 
-
+	
 t1 = threading.Thread(target=GetInfo, args=(GameServer1,))
 t1.start()
 t2 = threading.Thread(target=GetInfo, args=(GameServer2,))
@@ -269,46 +318,13 @@ t3.start()
 t4 = threading.Thread(target=GetInfo, args=(GameServer4,))
 t4.start()
 
-def print_separator():
-	print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
-
 def main():
 	while True:
-		GameServer.sendMessage(ServerMessageTypes.TURNTOHEADING, {'Amount': str((["TurretHeading"] + 20)%360)})
-		print(sorted(["Name: {0:s}, X: {1:.2f}, Y: {2:.2f}".format(v["Name"], v["X"], v["Y"]) for k, v in list(global_state["tanks"].items())]))
-		time.sleep(0.1)
-
+		for key in global_state.friends.keys():
+			if global_state.friends[key]["Name"] == "BigJeff:Frank":
+				GoToLocation(GameServer1,global_state.friends[key],{"X":0,"Y":0})
+			#if global_state.friends[key]["Name"] == "BigJeff:Amy":
+			#	GoToLocation(GameServer2,global_state.friends[key],{"X":100,"Y":0})
+		time.sleep(0.3)
+		
 main()
-"""
-message = {}
-resources = []
-myInfo = {}
-def ResourceView():
-	global message 
-	global resources
-	if "Type" in message:
-		if message["Type"] == "AmmoPickup":
-			for resource in range(0,len(resources)):
-				if resource == message:
-					resources
-def Move():
-	global message 
-	if "Type" in message:
-		if "Name" in message:
-			if message["Name"] == 'SEXY:I_KNOW_IT': 
-				myInfo = message
-				if nearestResource != {}:
-					print("Chasing the ammo")
-					GameServer.sendMessage(ServerMessageTypes.TOGGLEFORWARD)
-				else:
-V					GameServer.sendMessage(ServerMessageTypes.TURNTOHEADING, {'Amount': str((message["TurretHeading"] + 20)%360)})
-
-while True:
-	global message = GameServer.readMessage()
-	global message = GameServer.readMessage()
-
-	
-	NearestResource()
-	Move() 
-
-"""
