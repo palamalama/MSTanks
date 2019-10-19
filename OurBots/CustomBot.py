@@ -301,9 +301,7 @@ def tankController(stream, name):
 	while True:
 		for key in global_state.friends.keys():
 			if global_state.friends[key]["Name"] == name:
-				if 
-                
-                elif global_state.enemies != {}:  
+				if global_state.enemies != {}:  
                     
                     #tracks and SHOOTS the enemy
 					k_en, v_en = list(global_state.enemies.items())[0]
