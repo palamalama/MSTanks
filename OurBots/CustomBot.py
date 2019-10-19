@@ -174,6 +174,35 @@ if args.debug:
 else:
 	logging.basicConfig(format='[%(asctime)s] %(message)s', level=logging.INFO)
 
+
+def polarCoordinates(origin,target):
+	deltaX = -origin["X"]+target["X"]
+	deltaY = -origin["Y"]+target["Y"]
+	
+	distance = math.sqrt(deltaX*deltaX + deltaY*deltaY)
+	print("your distance: ",distance)
+	angle = 0
+	print("dX:",deltaX,"dY:",deltaY)
+	if(deltaY != 0):
+		if deltaX<0:
+			if deltaY>0:
+				angle = (math.atan(-deltaX/deltaY)*180/math.pi + 360)%360
+			else:	
+				angle = (90+math.atan(-deltaY/-deltaX)*180/math.pi )%360
+		else:
+			if deltaY>0:
+				angle = (math.atan(-deltaX/deltaY)*180/math.pi + 360)%360
+			else:	
+				angle = (180+math.atan(deltaX/-deltaY)*180/math.pi )%360
+	else:
+		if deltaX > 0:
+			angle = 90
+		elif deltaX < 0: 
+			angle = 270
+
+	print("your angle:", angle)
+	return {"distance":distance,"angle":angle}
+
 # Connect to game server
 GameServer1 = ServerComms(args.hostname, args.port)
 GameServer2 = ServerComms(args.hostname, args.port)
@@ -221,64 +250,36 @@ def pruneGlobalState(data_ttl = 400):         # 0.5 seconds time to live
 
 #ACTUAL GAME AFTER INITIALISATION
 import threading
-def GetInfo():
+def GetInfo(stream):
+	print("starting Info Thread")
 	while True:
 		start = current_milli_time()
-		for stream in input_streams:
-			message = stream.readMessage()
-			messageToGlobal(message)
-			pruneGlobalState()
-			delta = current_milli_time() - start
-			print("multi stream loop time {}ms".format(delta))
+		message = stream.readMessage()
+		messageToGlobal(message)
+		pruneGlobalState()
+		delta = current_milli_time() - start
 
 
-t1 = threading.Thread(target=GetInfo)
+t1 = threading.Thread(target=GetInfo, args=(GameServer1,))
 t1.start()
-
-def polarCoordinates(origin,target):
-	deltaX = -origin["X"]+target["X"]
-	deltaY = -origin["Y"]+target["Y"]
-	
-	distance = math.sqrt(deltaX*deltaX + deltaY*deltaY)
-	print("your distance: ",distance)
-	angle = 0
-	print("dX:",deltaX,"dY:",deltaY)
-	if(deltaY != 0):
-		if deltaX<0:
-			if deltaY>0:
-				angle = (math.atan(-deltaX/deltaY)*180/math.pi + 360)%360
-			else:	
-				angle = (90+math.atan(-deltaY/-deltaX)*180/math.pi )%360
-		else:
-			if deltaY>0:
-				angle = (math.atan(-deltaX/deltaY)*180/math.pi + 360)%360
-			else:	
-				angle = (180+math.atan(deltaX/-deltaY)*180/math.pi )%360
-	else:
-		if deltaX > 0:
-			angle = 90
-		elif deltaX < 0: 
-			angle = 270
-
-	print("your angle:", angle)
-	return {"distance":distance,"angle":angle}
-
+t2 = threading.Thread(target=GetInfo, args=(GameServer2,))
+t2.start()
+t3 = threading.Thread(target=GetInfo, args=(GameServer3,))
+t3.start()
+t4 = threading.Thread(target=GetInfo, args=(GameServer4,))
+t4.start()
+state = "ROTATE"
 
 def print_separator():
 	print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
 
 def main():
 	while True:
-	#	if state == "ROTATE":	
 	#		GameServer.sendMessage(ServerMessageTypes.TURNTOHEADING, {'Amount': str((["TurretHeading"] + 20)%360)})
-# 		print_separator()
 		print(sorted(["Name: {0:s}, X: {1:.2f}, Y: {2:.2f}".format(v["Name"], v["X"], v["Y"]) for k, v in list(global_state["tanks"].items())]))
-# 		print(str([t["Name"] for t in global_state["tanks"]]), end='\r', flush=True)
-	# 	sys.stdout.write("Tanks detected:".format(list(info["Tank"].keys())))
-	# 	sys.stdout.flush()
-# 		stdscr.refresh()
-		time.sleep(0.5)
+		time.sleep(0.1)
 
+<<<<<<< HEAD:OurBots/Random.py
 main()
 """
 message = {}
@@ -313,3 +314,6 @@ while True:
 	Move() 
 
 """
+=======
+main()
+>>>>>>> 4fcbe9ba244c142ea1dc1d8cc2139ad8397d13cc:OurBots/CustomBot.py
