@@ -172,25 +172,59 @@ else:
 
 # Connect to game server
 GameServer = ServerComms(args.hostname, args.port)
+GameServer2 = ServerComms(args.hostname, args.port)
 
 # Spawn our tank
 logging.info("Creating tank with name '{}'".format(args.name))
 GameServer.sendMessage(ServerMessageTypes.CREATETANK, {'Name': args.name})
-
+GameServer2.sendMessage(ServerMessageTypes.CREATETANK, {'Name': args.name+"2"})
 
 
 
 
 #ACTUAL GAME AFTER INITIALISATION
+import threading
+info = {"Tank":{},"HealthPickup":{},"AmmoPickup":{},"Projectile":{}}
+def GetInfo():
+	while True:
+		message = GameServer.readMessage()
+		if "Type" in message:
+			if message["Type"] == "Tank":
+				info["Tank"][message["Id"]] = message
+			elif message["Type"] == "AmmoPickup":	
+				info["AmmoPickup"][message["Id"]] = message
+			elif message["Type"] == "HealthPickup":
+				info["HealthPickup"][message["Id"]] = message
+
+		message = GameServer2.readMessage()
+		if "Type" in message:
+			if message["Type"] == "Tank":
+				info["Tank"][message["Id"]] = message
+			elif message["Type"] == "AmmoPickup":	
+				info["AmmoPickup"][message["Id"]] = message
+			elif message["Type"] == "HealthPickup":
+				info["HealthPickup"][message["Id"]] = message
+
+
+t1 = threading.Thread(target=GetInfo)
+t1.start()
+state = "ROTATE"
+while True:
+#	if state == "ROTATE":	
+#		GameServer.sendMessage(ServerMessageTypes.TURNTOHEADING, {'Amount': str((["TurretHeading"] + 20)%360)})
+	print(info["Tank"].keys())
+"""
 message = {}
-nearestResource = {}
+resources = []
 myInfo = {}
-def NearestResource():
+def ResourceView():
 	global message 
-	global nearestResource
+	global resources
 	if "Type" in message:
 		if message["Type"] == "AmmoPickup":
-			nearestResource = message
+			for resource in range(0,len(resources)):
+				if resource == message:
+					resources
 def Move():
 	global message 
 	if "Type" in message:
@@ -198,14 +232,17 @@ def Move():
 			if message["Name"] == 'SEXY:I_KNOW_IT': 
 				myInfo = message
 				if nearestResource != {}:
+					print("Chasing the ammo")
 					GameServer.sendMessage(ServerMessageTypes.TOGGLEFORWARD)
 				else:
 					GameServer.sendMessage(ServerMessageTypes.TURNTOHEADING, {'Amount': str((message["TurretHeading"] + 20)%360)})
 
 while True:
 	global message = GameServer.readMessage()
+	global message = GameServer.readMessage()
+
 	
 	NearestResource()
 	Move() 
 
-
+"""
