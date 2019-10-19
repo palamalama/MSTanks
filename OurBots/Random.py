@@ -7,7 +7,10 @@ import binascii
 import struct
 import argparse
 import random
-
+import time
+current_milli_time = lambda: int(round(time.time() * 1000))
+import sys
+from curses import wrapper
 
 class ServerMessageTypes(object):
 	TEST = 0
@@ -169,50 +172,84 @@ if args.debug:
 else:
 	logging.basicConfig(format='[%(asctime)s] %(message)s', level=logging.INFO)
 
-
 # Connect to game server
-GameServer = ServerComms(args.hostname, args.port)
+GameServer1 = ServerComms(args.hostname, args.port)
 GameServer2 = ServerComms(args.hostname, args.port)
+GameServer3 = ServerComms(args.hostname, args.port)
+GameServer4 = ServerComms(args.hostname, args.port)
 
 # Spawn our tank
 logging.info("Creating tank with name '{}'".format(args.name))
-GameServer.sendMessage(ServerMessageTypes.CREATETANK, {'Name': args.name})
-GameServer2.sendMessage(ServerMessageTypes.CREATETANK, {'Name': args.name+"2"})
+GameServer1.sendMessage(ServerMessageTypes.CREATETANK, {'Name': "BigJeff:Frank"})
+GameServer2.sendMessage(ServerMessageTypes.CREATETANK, {'Name': "BigJeff:Amy"})
+GameServer3.sendMessage(ServerMessageTypes.CREATETANK, {'Name': "BigJeff:Bert"})
+GameServer4.sendMessage(ServerMessageTypes.CREATETANK, {'Name': "BigJeff:Chris"})
+
+input_streams = [GameServer1,GameServer2,GameServer3,GameServer4]
+
+global_state = {
+	"tanks":{},
+	"ammoPickups":{},
+	"healthPickups":{}
+}
 
 
-
+def messageToGlobal(message):
+	try:
+		message_type = message["Type"]
+		if message_type == "Tank":
+			message["timestamp"] = current_milli_time()
+			global_state["tanks"][message["Id"]] = message
+	# 	elif message_type == "AmmoPickup":
+	# 		print("Ammo message:", message)
+	# 		message["timestamp"] = current_milli_time()
+	# 		global_state["ammoPickups"].append(message)
+	# 	elif message_type == "HealthPickup":
+	# 		print("Health pickup message:", message)
+	# 		message["timestamp"] = current_milli_time()
+	# 		global_state["healthPickups"].append(message)
+	except:
+		print(message)
+		
+def pruneGlobalState(data_ttl = 400):         # 0.5 seconds time to live
+	for k in global_state.keys():
+		for key, val in list(global_state[k].items()):
+			if val["timestamp"] + data_ttl < current_milli_time():
+				del global_state[k][key]
 
 #ACTUAL GAME AFTER INITIALISATION
 import threading
-info = {"Tank":{},"HealthPickup":{},"AmmoPickup":{},"Projectile":{}}
 def GetInfo():
 	while True:
-		message = GameServer.readMessage()
-		if "Type" in message:
-			if message["Type"] == "Tank":
-				info["Tank"][message["Id"]] = message
-			elif message["Type"] == "AmmoPickup":	
-				info["AmmoPickup"][message["Id"]] = message
-			elif message["Type"] == "HealthPickup":
-				info["HealthPickup"][message["Id"]] = message
-
-		message = GameServer2.readMessage()
-		if "Type" in message:
-			if message["Type"] == "Tank":
-				info["Tank"][message["Id"]] = message
-			elif message["Type"] == "AmmoPickup":	
-				info["AmmoPickup"][message["Id"]] = message
-			elif message["Type"] == "HealthPickup":
-				info["HealthPickup"][message["Id"]] = message
+		start = current_milli_time()
+		for stream in input_streams:
+			message = stream.readMessage()
+			messageToGlobal(message)
+			pruneGlobalState()
+			delta = current_milli_time() - start
+			print("multi stream loop time {}ms".format(delta))
 
 
 t1 = threading.Thread(target=GetInfo)
 t1.start()
 state = "ROTATE"
-while True:
-#	if state == "ROTATE":	
-#		GameServer.sendMessage(ServerMessageTypes.TURNTOHEADING, {'Amount': str((["TurretHeading"] + 20)%360)})
-	print(info["Tank"].keys())
+
+def print_separator():
+	print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
+
+def main():
+	while True:
+	#	if state == "ROTATE":	
+	#		GameServer.sendMessage(ServerMessageTypes.TURNTOHEADING, {'Amount': str((["TurretHeading"] + 20)%360)})
+# 		print_separator()
+		print(sorted(["Name: {0:s}, X: {1:.2f}, Y: {2:.2f}".format(v["Name"], v["X"], v["Y"]) for k, v in list(global_state["tanks"].items())]))
+# 		print(str([t["Name"] for t in global_state["tanks"]]), end='\r', flush=True)
+	# 	sys.stdout.write("Tanks detected:".format(list(info["Tank"].keys())))
+	# 	sys.stdout.flush()
+# 		stdscr.refresh()
+		time.sleep(0.5)
+
+main()
 """
 message = {}
 resources = []
