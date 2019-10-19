@@ -12,7 +12,6 @@ import time
 
 current_milli_time = lambda: int(round(time.time() * 1000))
 import sys
-from curses import wrapper
 
 class ServerMessageTypes(object):
 	TEST = 0
@@ -320,41 +319,5 @@ def main():
 		print(sorted(["Name: {0:s}, X: {1:.2f}, Y: {2:.2f}".format(v["Name"], v["X"], v["Y"]) for k, v in list(global_state.friends.items())]))
 		time.sleep(0.1)
 
-<<<<<<< HEAD:OurBots/Random.py
 main()
-"""
-message = {}
-resources = []
-myInfo = {}
-def ResourceView():
-	global message 
-	global resources
-	if "Type" in message:
-		if message["Type"] == "AmmoPickup":
-			for resource in range(0,len(resources)):
-				if resource == message:
-					resources
-def Move():
-	global message 
-	if "Type" in message:
-		if "Name" in message:
-			if message["Name"] == 'SEXY:I_KNOW_IT': 
-				myInfo = message
-				if nearestResource != {}:
-					print("Chasing the ammo")
-					GameServer.sendMessage(ServerMessageTypes.TOGGLEFORWARD)
-				else:
-V					GameServer.sendMessage(ServerMessageTypes.TURNTOHEADING, {'Amount': str((message["TurretHeading"] + 20)%360)})
 
-while True:
-	global message = GameServer.readMessage()
-	global message = GameServer.readMessage()
-
-	
-	NearestResource()
-	Move() 
-
-"""
-=======
-main()
->>>>>>> 4fcbe9ba244c142ea1dc1d8cc2139ad8397d13cc:OurBots/CustomBot.py
