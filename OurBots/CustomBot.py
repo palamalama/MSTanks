@@ -165,7 +165,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-d', '--debug', action='store_true', help='Enable debug output')
 parser.add_argument('-H', '--hostname', default='127.0.0.1', help='Hostname to connect to')
 parser.add_argument('-p', '--port', default=8052, type=int, help='Port to connect to')
-parser.add_argument('-n', '--name', default='SEXY:I_KNOW_IT', help='Name of bot')
+parser.add_argument('-t', '--team', default='BIGJEFF', help='Bot Team')
 args = parser.parse_args()
 
 # Set up console logging
@@ -213,16 +213,14 @@ def GoToLocation(gameServer,origin, destination):
 	return False
 
 def NearestThing(origin,thingsDict):
-	closestDistance = 0
-	closestKey = ""
+	distances = []
 	for key in thingsDict.keys():
 		deltaX = -origin["X"] + thingsDict[key]["X"]
 		deltaY = -origin["Y"] + thingsDict[key]["Y"]
 		distance = math.sqrt(deltaX*deltaX+deltaY*deltaY)
-		if(distance <= closestDistance):
-			closestDistance = distance
-			closestKey = key
-	return key
+		distances.append(distance)
+	min_idx = np.argmin(distances)
+	return list(thingsDict.keys())[min_idx]
 
 def enemyPosition(target):
     x = target["X"]
@@ -249,11 +247,11 @@ GameServer3 = ServerComms(args.hostname, args.port)
 GameServer4 = ServerComms(args.hostname, args.port)
 
 # Spawn our tank
-logging.info("Creating tank with name '{}'".format(args.name))
-GameServer1.sendMessage(ServerMessageTypes.CREATETANK, {'Name': "BigJeff:Frank"})
-GameServer2.sendMessage(ServerMessageTypes.CREATETANK, {'Name': "BigJeff:Amy"})
-GameServer3.sendMessage(ServerMessageTypes.CREATETANK, {'Name': "BigJeff:Bert"})
-GameServer4.sendMessage(ServerMessageTypes.CREATETANK, {'Name': "BigJeff:Chris"})
+print("Creating Tank Team: " + args.team)
+GameServer1.sendMessage(ServerMessageTypes.CREATETANK, {'Name': args.team+":Frank"})
+GameServer2.sendMessage(ServerMessageTypes.CREATETANK, {'Name': args.team+":Amy"})
+GameServer3.sendMessage(ServerMessageTypes.CREATETANK, {'Name': args.team+":Bert"})
+GameServer4.sendMessage(ServerMessageTypes.CREATETANK, {'Name': args.team+":Chris"})
 
 input_streams = [GameServer1,GameServer2,GameServer3,GameServer4]
 
@@ -265,31 +263,38 @@ class GlobalState():
 		self.healthPickups = {}
 		self.health = {}
 		self.last_refresh = current_milli_time()
-		self.kill = {}
+		self.kills = {
+			args.team+":Frank":False,
+			args.team+":Amy":False,
+			args.team+":Bert":False,
+			args.team+":Chris":False,
+			"":False
+		}
 	
-	def take_message(self, message):
+	def take_message(self, message, sender=""):
 		# this method incorporates a message into the global state
 		message["timestamp"] = current_milli_time()
 		try:
-			print(message)
-			if message["Type"] == "Tank":
-				if message["Name"].split(":")[0] == "BigJeff":
+			if message.get("Type",0) == "Tank":
+				if message["Name"].split(":")[0] == args.team:
 					self.friends[message["Id"]] = message
 				else:
 					self.enemies[message["Id"]] = message
-			elif message["Type"] == "AmmoPickup":
+			elif message.get("Type",0) == "AmmoPickup":
 				self.ammoPickups[message["Id"]] = message
-			elif message["Type"] == "HealthPickup":
+			elif message.get("Type",0) == "HealthPickup":
 				self.healthPickups[message["Id"]] = message
-			elif message["messageType"] == 26:
+			elif message.get("messageType",0) == 24:
+				self.kills[sender] = True
+			else:
+				pass
+				print("###################### MESSAGE #################")
 				print(message)
-			elif message["messageType"] == 24:
-				self.kill[message["Id"]] = message
-#			else
 		except:
-			print("############ MESSAGE NOT PROCESSED ###############")
-			print(message)
-			print("##################################################")
+			pass
+# 			print("############ MESSAGE NOT PROCESSED ###############")
+# 			print(message)
+# 			print("##################################################")
 	
 	def prune(self):
 		self.dictPrune(self.friends)
@@ -297,21 +302,26 @@ class GlobalState():
 		self.dictPrune(self.ammoPickups)
 		self.dictPrune(self.health)
 				
-	def dictPrune(self, dictionary, data_ttl = 400):
+	def dictPrune(self, dictionary, data_ttl = 1000):
 		for key, val in list(dictionary.items()): 
 			if val["timestamp"] + data_ttl < current_milli_time():
 				del dictionary[key]
 	
 global_state = GlobalState()
 
+def search_alg(stream, tank):
+	at_center = GoToLocation(stream,tank,{"X":0,"Y":0})
+	stream.sendMessage(ServerMessageTypes.TOGGLETURRETLEFT)
+
+
 #ACTUAL GAME AFTER INITIALISATION
 import threading
-def GetInfo(stream):
+def GetInfo(stream,name):
 	print("starting Info Thread")
 	while True:
 		start = current_milli_time()
 		message = stream.readMessage()
-		global_state.take_message(message)
+		global_state.take_message(message,name)
 		global_state.prune()
 		delta = current_milli_time() - start
 	
@@ -327,44 +337,58 @@ coords = randomcoords_ollie(GameServer1, global_state.friends, global_state.dest
 def tankController(stream, name):
 	print("starting Tank Controller")
 	while True:
-		for key in global_state.friends.keys():
+		for key in list(global_state.friends.keys()):
 			if global_state.friends[key]["Name"] == name:
-				if global_state.enemies != {}:  
-                    
-                    #tracks and SHOOTS the enemy
+				if global_state.kills[name]:
+					## If you have killed go score the point
+					goals = {1:{"X":0,"Y":110},2:{"X":0,"Y":-110}}
+					nearest_goal = NearestThing(global_state.friends[key],goals)
+					arrived = GoToLocation(stream,global_state.friends[key],goals[nearest_goal])
+					if arrived:
+						global_state.kills[name] = False
+				elif (global_state.friends[key]["Ammo"] == 0) and (global_state.ammoPickups != {}):
+					## If you have no ammo and know where ammo is go get it
+					nearest_ammo = NearestThing(global_state.friends[key],global_state.ammoPickups)
+					GoToLocation(stream,global_state.friends[key],global_state.ammoPickups[nearest_ammo])
+				elif (global_state.friends[key]["Ammo"] == 0) and (global_state.ammoPickups == {}):
+					## If you have no ammo, but don't know where ammo is make a random search
+					search_alg(stream, global_state.friends[key])
+				elif global_state.enemies != {}:  
+					## If there are emenies go get them!
+					#tracks and SHOOTS the enemy
 					k_en, v_en = list(global_state.enemies.items())[0]
 					v_us = global_state.friends[key]
 					info = PolarCoordinates(v_us,v_en)
-					print(info)
 					stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':int(info['angle'])})
 					stream.sendMessage(ServerMessageTypes.FIRE)
-                    
-                    #tracks and FOLLOW the enemy
+					#tracks and FOLLOW the enemy
 					nearestEnemy = NearestThing(global_state.friends[key],global_state.enemies) 
 					GoToLocation(stream,global_state.friends[key],global_state.enemies[nearestEnemy])
+				else:
+					search_alg(stream, global_state.friends[key])
 				
 #                else:
 #					GoToLocation(stream,global_state.friends[key],{"X":0,"Y":0})
 		time.sleep(0.3)
 
 	
-t1 = threading.Thread(target=GetInfo, args=(GameServer1,))
+t1 = threading.Thread(target=GetInfo, args=(GameServer1,args.team+":Frank",))
 t1.start()
-t2 = threading.Thread(target=GetInfo, args=(GameServer2,))
+t2 = threading.Thread(target=GetInfo, args=(GameServer2,args.team+":Amy",))
 t2.start()
-t3 = threading.Thread(target=GetInfo, args=(GameServer3,))
+t3 = threading.Thread(target=GetInfo, args=(GameServer3,args.team+":Bert",))
 t3.start()
-t4 = threading.Thread(target=GetInfo, args=(GameServer4,))
+t4 = threading.Thread(target=GetInfo, args=(GameServer4,args.team+":Chris",))
 t4.start()
 
 # Tank threads
-FrankThread = threading.Thread(target=tankController, args=(GameServer1,"BigJeff:Frank",))
+FrankThread = threading.Thread(target=tankController, args=(GameServer1,args.team+":Frank",))
 FrankThread.start()
-AmyThread = threading.Thread(target=tankController, args=(GameServer2,"BigJeff:Amy",))
+AmyThread = threading.Thread(target=tankController, args=(GameServer2,args.team+":Amy",))
 AmyThread.start()
-BertThread = threading.Thread(target=tankController, args=(GameServer3,"BigJeff:Bert",))
+BertThread = threading.Thread(target=tankController, args=(GameServer3,args.team+":Bert",))
 BertThread.start()
-ChrisThread = threading.Thread(target=tankController, args=(GameServer4,"BigJeff:Chris",))
+ChrisThread = threading.Thread(target=tankController, args=(GameServer4,args.team+":Chris",))
 ChrisThread.start()
 
 def main():
