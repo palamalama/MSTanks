@@ -222,22 +222,24 @@ def NearestThing(origin,thingsDict):
 	min_idx = np.argmin(distances)
 	return list(thingsDict.keys())[min_idx]
 
+#Ollie note: This is the targetting script me and connor were working on 
+
 def enemyPosition(target):
     x = target["X"]
     y= target["Y"]
     return x,y
 def HitMoving(gameserver, origin, target):
-    x = origin["X"]
+    x = origin["X"] #get our tanks position
     y = origin["Y"]
-    xt1,yt1 = enemyPosition(target)
+    xt1,yt1 = enemyPosition(target) #get enemy position
     time.sleep(0.4)
     xt2, yt2 = enemyPosition(target)
-    direction = (yt2-yt1)/(xt2-xt1)
-    tankv = 9.4628
-    bulletv = 10
-    t = ((bulletv*(xt1 - x)) + (2*tankv *(np.sin(direction))*(yt1-y)))/(bulletv*tankv*np.cos(direction)-(bulletv**2)+(tankv**2)*((np.sin(direction))**2))
-    tanalpha = (tankv*t*np.sin(direction)- (yt1-y))/(tankv*t*np.cos(direction)-(xt1-x))
-    alpha = np.arctan(tanalpha) * 180/np.pi
+    direction = (yt2-yt1)/(xt2-xt1) #get direction of energy tank
+    tankv = 9.4628 # tank speed 
+    bulletv = 25 #bullet speed
+    t = ((bulletv*(xt1 - x)) + (2*tankv *(np.sin(direction))*(yt1-y)))/(bulletv*tankv*np.cos(direction)-(bulletv**2)+(tankv**2)*((np.sin(direction))**2)) #get value of t
+    tanalpha = (tankv*t*np.sin(direction)- (yt1-y))/(tankv*t*np.cos(direction)-(xt1-x)) #get tan alpha, which is the estimate of the tan of the angle that the tank needs to rotate from the angle between it and the enemy in order to hit 
+    alpha = np.arctan(tanalpha) * 180/np.pi #alpha, the angle the tank needs to rotate to hit the moving enemy tank
     return alpha
 
 # Connect to game server
@@ -270,6 +272,8 @@ class GlobalState():
 			args.team+":Chris":False,
 			"":False
 		}
+		self.time = {} #instantiate time dict so we can count down to snitch release
+		self.snitch = {} #instantiate snitch location dict
 	
 	def take_message(self, message, sender=""):
 		# this method incorporates a message into the global state
@@ -280,16 +284,22 @@ class GlobalState():
 					self.friends[message["Id"]] = message
 				else:
 					self.enemies[message["Id"]] = message
+			elif message.get("Type",0) == "SNITCHAPPEARED": #when snitch appears print the message 
+				print('snitch')
+				print(message)
+				#self.snitch[message["Id"]] = message
 			elif message.get("Type",0) == "AmmoPickup":
 				self.ammoPickups[message["Id"]] = message
 			elif message.get("Type",0) == "HealthPickup":
 				self.healthPickups[message["Id"]] = message
 			elif message.get("messageType",0) == 24:
 				self.kills[sender] = True
+			elif message.get("messageType",0) == 26:
+				self.time[message["Time"]] = message
 			else:
 				pass
 				print("###################### MESSAGE #################")
-				print(message)
+				#print(message)
 		except:
 			pass
 # 			print("############ MESSAGE NOT PROCESSED ###############")
@@ -302,7 +312,7 @@ class GlobalState():
 		self.dictPrune(self.ammoPickups)
 		self.dictPrune(self.health)
 				
-	def dictPrune(self, dictionary, data_ttl = 800):
+	def dictPrune(self, dictionary, data_ttl = 800): #Prune this faster. The server sends a message every 0.345 seconds so this constitutes about 2 messages 
 		for key, val in list(dictionary.items()): 
 			if val["timestamp"] + data_ttl < current_milli_time():
 				del dictionary[key]
@@ -324,9 +334,9 @@ def GetInfo(stream,name):
 		global_state.take_message(message,name)
 		global_state.prune()
 		delta = current_milli_time() - start
-	
+#my random search algorithm
 def randomsearch_ollie(stream, tank):
-    x = np.random.randint(-30,-10)
+    x = np.random.randint(50,75)
     y = np.random.randint(-30, 30)
     coordinates = {"X":x, "Y":y}
     GoToLocation(stream,tank,coordinates)
@@ -337,6 +347,8 @@ def tankController(stream, name):
 	while True:
 		for key in list(global_state.friends.keys()):
 			if global_state.friends[key]["Name"] == name:
+                #if global_state.time["time"] < 120 and global_state.ammoPickups != {}:
+					#GoToLocation(stream,global_state.friends[key],global_state.snitch["snitch"])
 				if global_state.kills[name]:
 					## If you have killed go score the point
 					goals = {1:{"X":0,"Y":110},2:{"X":0,"Y":-110}}
@@ -360,10 +372,12 @@ def tankController(stream, name):
 					stream.sendMessage(ServerMessageTypes.FIRE)
 					#tracks and FOLLOW the enemy
 					nearestEnemy = NearestThing(global_state.friends[key],global_state.enemies)
-					stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':int(info['angle'])})
+					#Ollie note: added another statement here just incase an update has happened
+                    stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':int(info['angle'])})
 					GoToLocation(stream,global_state.friends[key],global_state.enemies[nearestEnemy])
 				else:
-					randomsearch_ollie(stream, global_state.friends[key])
+					#random search algorithm 
+                    randomsearch_ollie(stream, global_state.friends[key])
 				
 #                else:
 #					GoToLocation(stream,global_state.friends[key],{"X":0,"Y":0})
