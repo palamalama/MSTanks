@@ -1,5 +1,5 @@
 #!/usr/bin/python
-
+import math 
 import json
 import socket
 import logging
@@ -8,6 +8,8 @@ import struct
 import argparse
 import random
 import time
+#import numpy as np
+
 current_milli_time = lambda: int(round(time.time() * 1000))
 import sys
 from curses import wrapper
@@ -232,7 +234,35 @@ def GetInfo():
 
 t1 = threading.Thread(target=GetInfo)
 t1.start()
-state = "ROTATE"
+
+def polarCoordinates(origin,target):
+	deltaX = -origin["X"]+target["X"]
+	deltaY = -origin["Y"]+target["Y"]
+	
+	distance = math.sqrt(deltaX*deltaX + deltaY*deltaY)
+	print("your distance: ",distance)
+	angle = 0
+	print("dX:",deltaX,"dY:",deltaY)
+	if(deltaY != 0):
+		if deltaX<0:
+			if deltaY>0:
+				angle = (math.atan(-deltaX/deltaY)*180/math.pi + 360)%360
+			else:	
+				angle = (90+math.atan(-deltaY/-deltaX)*180/math.pi )%360
+		else:
+			if deltaY>0:
+				angle = (math.atan(-deltaX/deltaY)*180/math.pi + 360)%360
+			else:	
+				angle = (180+math.atan(deltaX/-deltaY)*180/math.pi )%360
+	else:
+		if deltaX > 0:
+			angle = 90
+		elif deltaX < 0: 
+			angle = 270
+
+	print("your angle:", angle)
+	return {"distance":distance,"angle":angle}
+
 
 def print_separator():
 	print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
@@ -272,7 +302,7 @@ def Move():
 					print("Chasing the ammo")
 					GameServer.sendMessage(ServerMessageTypes.TOGGLEFORWARD)
 				else:
-					GameServer.sendMessage(ServerMessageTypes.TURNTOHEADING, {'Amount': str((message["TurretHeading"] + 20)%360)})
+V					GameServer.sendMessage(ServerMessageTypes.TURNTOHEADING, {'Amount': str((message["TurretHeading"] + 20)%360)})
 
 while True:
 	global message = GameServer.readMessage()
