@@ -329,8 +329,9 @@ def tankController(stream, name):
 				elif global_state.enemies != {}:  
 					## If there are emenies go get them!
 					#tracks and SHOOTS the enemy
-					nearest_enemy = NearestThing(global_state.friends[key],global_state.enemies)
-					info = PolarCoordinates(global_state.friends[key],global_state.enemies[nearest_enemy])
+					k_en, v_en = list(global_state.enemies.items())[0]      # THIS SHOULD BE CHANGED!!!!!!!!!! GET NEAREST!!!!!
+					v_us = global_state.friends[key]
+					info = PolarCoordinates(v_us,v_en)
 					stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':int(info['angle'])})
 					stream.sendMessage(ServerMessageTypes.FIRE)
 					#tracks and FOLLOW the enemy
