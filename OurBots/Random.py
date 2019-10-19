@@ -160,7 +160,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-d', '--debug', action='store_true', help='Enable debug output')
 parser.add_argument('-H', '--hostname', default='127.0.0.1', help='Hostname to connect to')
 parser.add_argument('-p', '--port', default=8052, type=int, help='Port to connect to')
-parser.add_argument('-n', '--name', default='TeamA:RandomBot', help='Name of bot')
+parser.add_argument('-n', '--name', default='SEXY:I_KNOW_IT', help='Name of bot')
 args = parser.parse_args()
 
 # Set up console logging
@@ -172,28 +172,77 @@ else:
 
 # Connect to game server
 GameServer = ServerComms(args.hostname, args.port)
+GameServer2 = ServerComms(args.hostname, args.port)
 
 # Spawn our tank
 logging.info("Creating tank with name '{}'".format(args.name))
 GameServer.sendMessage(ServerMessageTypes.CREATETANK, {'Name': args.name})
+GameServer2.sendMessage(ServerMessageTypes.CREATETANK, {'Name': args.name+"2"})
 
-# Main loop - read game messages, ignore them and randomly perform actions
-i=0
+
+
+
+#ACTUAL GAME AFTER INITIALISATION
+import threading
+info = {"Tank":{},"HealthPickup":{},"AmmoPickup":{},"Projectile":{}}
+def GetInfo():
+	while True:
+		message = GameServer.readMessage()
+		if "Type" in message:
+			if message["Type"] == "Tank":
+				info["Tank"][message["Id"]] = message
+			elif message["Type"] == "AmmoPickup":	
+				info["AmmoPickup"][message["Id"]] = message
+			elif message["Type"] == "HealthPickup":
+				info["HealthPickup"][message["Id"]] = message
+
+		message = GameServer2.readMessage()
+		if "Type" in message:
+			if message["Type"] == "Tank":
+				info["Tank"][message["Id"]] = message
+			elif message["Type"] == "AmmoPickup":	
+				info["AmmoPickup"][message["Id"]] = message
+			elif message["Type"] == "HealthPickup":
+				info["HealthPickup"][message["Id"]] = message
+
+
+t1 = threading.Thread(target=GetInfo)
+t1.start()
+state = "ROTATE"
 while True:
-	message = GameServer.readMessage()
-	print('this is running')
-    
-	if i == 5:
-		if random.randint(0, 10) > 5:
-			logging.info("Firing")
-			GameServer.sendMessage(ServerMessageTypes.FIRE)
-	elif i == 10:
-		logging.info("Turning randomly")
-		GameServer.sendMessage(ServerMessageTypes.TURNTOHEADING, {'Amount': random.randint(0, 359)})
-	elif i == 15:
-		logging.info("Moving randomly")
-		GameServer.sendMessage(ServerMessageTypes.MOVEFORWARDDISTANCE, {'Amount': random.randint(0, 10)})
-	i = i + 1
-	if i > 20:
-		i = 0
+#	if state == "ROTATE":	
+#		GameServer.sendMessage(ServerMessageTypes.TURNTOHEADING, {'Amount': str((["TurretHeading"] + 20)%360)})
+	print(info["Tank"].keys())
+"""
+message = {}
+resources = []
+myInfo = {}
+def ResourceView():
+	global message 
+	global resources
+	if "Type" in message:
+		if message["Type"] == "AmmoPickup":
+			for resource in range(0,len(resources)):
+				if resource == message:
+					resources
+def Move():
+	global message 
+	if "Type" in message:
+		if "Name" in message:
+			if message["Name"] == 'SEXY:I_KNOW_IT': 
+				myInfo = message
+				if nearestResource != {}:
+					print("Chasing the ammo")
+					GameServer.sendMessage(ServerMessageTypes.TOGGLEFORWARD)
+				else:
+					GameServer.sendMessage(ServerMessageTypes.TURNTOHEADING, {'Amount': str((message["TurretHeading"] + 20)%360)})
 
+while True:
+	global message = GameServer.readMessage()
+	global message = GameServer.readMessage()
+
+	
+	NearestResource()
+	Move() 
+
+"""
