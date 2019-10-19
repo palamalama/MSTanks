@@ -332,7 +332,7 @@ def randomcoords_ollie(gameserver, origin, destination):
     coordinates = {"X":str(coordinates[0]), "Y":coordinates[1]}
     return coordinates
 
-coords = randomcoords_ollie(GameServer1, global_state.friends, global_state.destination)
+#coords = randomcoords_ollie(GameServer1, global_state.friends, global_state.destination)
     
 def tankController(stream, name):
 	print("starting Tank Controller")
