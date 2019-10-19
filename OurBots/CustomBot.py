@@ -298,6 +298,15 @@ def GetInfo(stream):
 		global_state.take_message(message)
 		global_state.prune()
 		delta = current_milli_time() - start
+		
+def tankController(stream, name):
+	print("starting Tank Controller")
+	while True:
+		print("Controlling:", name)
+		stream.sendMessage(ServerMessageTypes.TOGGLEFORWARD)
+		time.sleep(2)
+		stream.sendMessage(ServerMessageTypes.STOPMOVE)
+		time.sleep(2)
 
 
 t1 = threading.Thread(target=GetInfo, args=(GameServer1,))
@@ -309,14 +318,22 @@ t3.start()
 t4 = threading.Thread(target=GetInfo, args=(GameServer4,))
 t4.start()
 
-def print_separator():
-	print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
+
+# Tank threads
+FrankThread = threading.Thread(target=tankController, args=(GameServer1,"Frank",))
+FrankThread.start()
+AmyThread = threading.Thread(target=tankController, args=(GameServer2,"Amy",))
+AmyThread.start()
+BertThread = threading.Thread(target=tankController, args=(GameServer3,"Bert",))
+BertThread.start()
+ChrisThread = threading.Thread(target=tankController, args=(GameServer4,"Chris",))
+ChrisThread.start()
 
 def main():
 	while True:
 	#		GameServer.sendMessage(ServerMessageTypes.TURNTOHEADING, {'Amount': str((["TurretHeading"] + 20)%360)})
-		print(sorted(["Name: {0:s}, X: {1:.2f}, Y: {2:.2f}".format(v["Name"], v["X"], v["Y"]) for k, v in list(global_state.enemies.items())]))
-		print(sorted(["Name: {0:s}, X: {1:.2f}, Y: {2:.2f}".format(v["Name"], v["X"], v["Y"]) for k, v in list(global_state.friends.items())]))
+# 		print(sorted(["Name: {0:s}, X: {1:.2f}, Y: {2:.2f}".format(v["Name"], v["X"], v["Y"]) for k, v in list(global_state.enemies.items())]))
+# 		print(sorted(["Name: {0:s}, X: {1:.2f}, Y: {2:.2f}".format(v["Name"], v["X"], v["Y"]) for k, v in list(global_state.friends.items())]))
 		time.sleep(0.1)
 
 main()
