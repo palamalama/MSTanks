@@ -202,9 +202,6 @@ def PolarCoordinates(origin,target):
 
 def GoToLocation(gameServer,origin, destination):
 	coordinates = PolarCoordinates(origin,destination)
-	print("my coordinates",origin["X"],origin["Y"])
-	print("origin, heading",origin["Heading"])
-	print("desired heading",coordinates["angle"])
 	if(coordinates["distance"] <= 3):
 		gameServer.sendMessage(ServerMessageTypes.STOPMOVE)
 		return True
@@ -221,6 +218,17 @@ def NearestThing(origin,thingsDict):
 		distances.append(distance)
 	min_idx = np.argmin(distances)
 	return list(thingsDict.keys())[min_idx]
+
+def NoFriendlyFire(tankKey):
+	tankInfo = global_state.friends[tankKey]
+	for key in global_state.friends.keys():
+		if(key != tankKey):
+			coordinates = PolarCoordinates(tankInfo,global_state.friends[key])
+			angle = math.sqrt((coordinates["angle"]-tankInfo["TurretHeading"])**2)
+			requiredAngle = math.atan(10/(coordinates["distance"]-4.5))*180/math.pi
+			if angle < requiredAngle : 
+				return False
+	return True
 
 def enemyPosition(target):
     x = target["X"]
@@ -288,13 +296,8 @@ class GlobalState():
 				self.kills[sender] = True
 			else:
 				pass
-				print("###################### MESSAGE #################")
-				print(message)
 		except:
 			pass
-# 			print("############ MESSAGE NOT PROCESSED ###############")
-# 			print(message)
-# 			print("##################################################")
 	
 	def prune(self):
 		self.dictPrune(self.friends)
@@ -317,7 +320,6 @@ def search_alg(stream, tank):
 #ACTUAL GAME AFTER INITIALISATION
 import threading
 def GetInfo(stream,name):
-	print("starting Info Thread")
 	while True:
 		start = current_milli_time()
 		message = stream.readMessage()
@@ -333,39 +335,107 @@ def randomsearch_ollie(gameserver):
     GoToLocation(gameserver, gameserver.friends,coordinates)
     
 def tankController(stream, name):
-	print("starting Tank Controller")
 	while True:
 		for key in list(global_state.friends.keys()):
 			if global_state.friends[key]["Name"] == name:
-				if global_state.kills[name]:
-					## If you have killed go score the point
-					goals = {1:{"X":0,"Y":110},2:{"X":0,"Y":-110}}
-					nearest_goal = NearestThing(global_state.friends[key],goals)
-					arrived = GoToLocation(stream,global_state.friends[key],goals[nearest_goal])
-					if arrived:
-						global_state.kills[name] = False
-				elif (global_state.friends[key]["Ammo"] == 0) and (global_state.ammoPickups != {}):
-					## If you have no ammo and know where ammo is go get it
-					nearest_ammo = NearestThing(global_state.friends[key],global_state.ammoPickups)
-					GoToLocation(stream,global_state.friends[key],global_state.ammoPickups[nearest_ammo])
-				elif (global_state.friends[key]["Ammo"] == 0) and (global_state.ammoPickups == {}):
-					## If you have no ammo, but don't know where ammo is make a random search
-					search_alg(stream, global_state.friends[key])
-				elif global_state.enemies != {}:  
-					## If there are emenies go get them!
-					#tracks and SHOOTS the enemy
-					nearest_enemy = NearestThing(global_state.friends[key],global_state.enemies)
-					info = PolarCoordinates(global_state.friends[key],global_state.enemies[nearest_enemy])
-					stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':int(info['angle'])})
-					stream.sendMessage(ServerMessageTypes.FIRE)
-					#tracks and FOLLOW the enemy
-					nearestEnemy = NearestThing(global_state.friends[key],global_state.enemies) 
-					GoToLocation(stream,global_state.friends[key],global_state.enemies[nearestEnemy])
-				else:
-					search_alg(stream, global_state.friends[key])
+				infinity = {"distance":10000000,"angle":0}
+
+				me = global_state.friends[key]
+				goals = {1:{"X":0,"Y":110},2:{"X":0,"Y":-110}}
+
+				nearest_goal = NearestThing(me,goals)
+				goal_coords = PolarCoordinates(me,goals[nearest_goal])
 				
-#                else:
-#					GoToLocation(stream,global_state.friends[key],{"X":0,"Y":0})
+				nearest_enemy = ""
+				enemy_coords = infinity
+				if global_state.enemies != {}:
+					nearest_enemy = NearestThing(me,global_state.enemies)
+					enemy_coords = PolarCoordinates(me,global_state.enemies[nearest_enemy])
+
+				allies = global_state.friends.copy()
+				del allies[key]
+				nearest_ally = ""
+				ally_coords = infinity
+				if allies != {}:
+					nearest_ally = NearestThing(me,allies)
+					ally_coords = PolarCoordinates(me,allies[nearest_ally])
+				nearest_ammo = ""
+				ammo_coords = infinity
+				if global_state.ammoPickups != {} :
+					nearest_ammo = NearestThing(me,global_state.ammoPickups)
+					ammo_coords = PolarCoordinates(me,global_state.ammoPickups[nearest_ammo])
+
+				nearest_HP = ""
+				hp_coords = infinity
+				if global_state.healthPickups != {}:
+					nearest_HP = NearestThing(me,global_state.healthPickups)
+					hp_coords = PolarCoordinates(me,global_state.healthPickups[nearest_HP])
+
+				if global_state.kills[name]:
+					if me["Health"] == 1 and hp_coords["distance"] < 10:
+						GoToLocation(stream,me,global_state.healthPickups[nearest_HP])
+						stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':int(hp_coords['angle'])})
+						print(me["Name"] + " - SCORED - HP COLLECT")
+					
+					elif me["Ammo"] < 2 and ammo_coords["distance"] < 15:
+						GoToLocation(stream,me,global_state.ammoPickups[nearest_ammo])
+						stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':int(ammo_coords['angle'])})
+						print(me["Name"] + " - SCORED - AMMO COLLECT")
+					
+					else:	
+						print(me["Name"] + " - SCORED - GOING HOME")
+						arrived = GoToLocation(stream,me,goals[nearest_goal])
+						stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':int(goal_coords['angle'])})
+						if arrived:
+							global_state.kills[name] = False
+					if allies[nearest_ally]["Health"] == 1 and ally_coords["distance"] < 40:
+						print(me["Name"] + " - BONUS - ALLY MURDER")
+						stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':ally_coords["angle"]})
+						stream.sendMessage(ServerMessageTypes.FIRE) 
+					elif global_state.enemies != {}:
+						print(me["Name"] + " - BONUS - ENEMY SHOOT")
+						stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':int(enemy_coords['angle'])})
+						if NoFriendlyFire(key):
+							stream.sendMessage(ServerMessageTypes.FIRE)
+						
+						
+				elif global_state.friends[key]["Ammo"] == 0:
+					if me["Health"] == 1 and ally_coords["distance"] < 40:
+						print(me["Name"] + " - NO AMMO - SUICIDE")
+						GoToLocation(stream,me,allies[nearest_ally])
+					elif global_state.ammoPickups != {}:
+						print(me["Name"] + " - NO AMMO - GETTING AMMO")
+						stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':int(ammo_coords['angle'])})
+						GoToLocation(stream,me,global_state.ammoPickups[nearest_ammo])
+					else:
+						print(me["Name"] + " - NO AMMO - FINDING AMMO")
+						search_alg(stream, me)
+
+				elif "The Snitch has Been Spotted" == "True":
+					print("Should chase the snitch")
+	
+				elif global_state.enemies != {}:
+					if allies[nearest_ally]["Health"] == 1 and ally_coords["distance"] < 40:
+						print(me["Name"] + " - KILLING - MURDER ALLY")
+						stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':ally_coords["angle"]})
+						stream.sendMessage(ServerMessageTypes.FIRE)
+					else:
+						print(me["Name"] + " - KILLING - ENEMY SHOOT", enemy_coords["angle"])
+						stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':int(enemy_coords['angle'])})
+						if NoFriendlyFire(key):
+							stream.sendMessage(ServerMessageTypes.FIRE)
+						#tracks and FOLLOW the enemy
+						search_alg(stream, global_state.friends[key])
+						
+				else:
+					if allies[nearest_ally]["Health"] == 1 and ally_coords["distance"] < 40:
+						print(me["Name"] + " - DEFAULT - MURDER ALLY")
+						stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':ally_coords["angle"]})
+						stream.sendMessage(ServerMessageTypes.FIRE)
+					else:
+						print(me["Name"] + " - DEFAULT - FIND STUFF")
+						search_alg(stream, global_state.friends[key])
+
 		time.sleep(0.3)
 
 	
@@ -388,23 +458,4 @@ BertThread.start()
 ChrisThread = threading.Thread(target=tankController, args=(GameServer4,args.team+":Chris",))
 ChrisThread.start()
 
-def main():
-	while True:
-#	#		GameServer.sendMessage(ServerMessageTypes.TURNTOHEADING, {'Amount': str((["TurretHeading"] + 20)%360)})
-##		print(sorted(["Name: {0:s}, X: {1:.2f}, Y: {2:.2f}".format(v["Name"], v["X"], v["Y"]) for k, v in list(global_state.enemies.items())]))
-##		print(sorted(["Name: {0:s}, X: {1:.2f}, Y: {2:.2f}".format(v["Name"], v["X"], v["Y"]) for k, v in list(global_state.friends.items())]))
-#		
-#		if not list(global_state.enemies.items()):
-#			pass
-#		else:
-#			k_en, v_en = list(global_state.enemies.items())[0]
-#			k_us, v_us = list(global_state.friends.items())[0]
-#			info = polarCoordinates(v_us,v_en)
-#			print(info)
-#			GameServer1.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':int(info['angle'])})
-#			GameServer1.sendMessage(ServerMessageTypes.FIRE)
-#            
-            
-		time.sleep(0.1)
 
-main()
