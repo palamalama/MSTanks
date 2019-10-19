@@ -12,7 +12,7 @@ import time
 
 current_milli_time = lambda: int(round(time.time() * 1000))
 import sys
-#from curses import wrapper
+
 
 class ServerMessageTypes(object):
 	TEST = 0
@@ -175,33 +175,54 @@ else:
 	logging.basicConfig(format='[%(asctime)s] %(message)s', level=logging.INFO)
 
 
-def polarCoordinates(origin,target):
+def PolarCoordinates(origin,target):
 	deltaX = -origin["X"]+target["X"]
 	deltaY = -origin["Y"]+target["Y"]
 	
 	distance = math.sqrt(deltaX*deltaX + deltaY*deltaY)
-	print("your distance: ",distance)
 	angle = 0
-	print("dX:",deltaX,"dY:",deltaY)
 	if(deltaY != 0):
 		if deltaX<0:
 			if deltaY>0:
-				angle = (math.atan(-deltaX/deltaY)*180/math.pi + 360)%360
+				angle = (180+math.atan(deltaY/-deltaX)*180/math.pi + 360)%360
 			else:	
-				angle = (90+math.atan(-deltaY/-deltaX)*180/math.pi )%360
+				angle = (90+math.atan(-deltaX/-deltaY)*180/math.pi )%360
 		else:
 			if deltaY>0:
-				angle = (math.atan(-deltaX/deltaY)*180/math.pi + 360)%360
+				angle = (math.atan(deltaX/deltaY)*180/math.pi + 270)%360
 			else:	
-				angle = (180+math.atan(deltaX/-deltaY)*180/math.pi )%360
+				angle = (math.atan(deltaX/-deltaY)*180/math.pi )%360
 	else:
 		if deltaX > 0:
 			angle = 90
 		elif deltaX < 0: 
 			angle = 270
 
-	print("your angle:", angle)
 	return {"distance":distance,"angle":angle}
+
+def GoToLocation(gameServer,origin, destination):
+	coordinates = PolarCoordinates(origin,destination)
+	print("my coordinates",origin["X"],origin["Y"])
+	print("origin, heading",origin["Heading"])
+	print("desired heading",coordinates["angle"])
+	if(coordinates["distance"] <= 3):
+		gameServer.sendMessage(ServerMessageTypes.STOPMOVE)
+		return True
+	gameServer.sendMessage(ServerMessageTypes.TURNTOHEADING,{"Amount":coordinates["angle"]})
+	gameServer.sendMessage(ServerMessageTypes.TOGGLEFORWARD)
+	return False
+
+def NearestThing(origin,thingsDict):
+	closestDistance = 0
+	closestKey = ""
+	for key in thingsDict.keys():
+		deltaX = -origin["X"] + thingsDict[key]["X"]
+		deltaY = -origin["Y"] + thingsDict[key]["Y"]
+		distance = math.sqrt(deltaX*deltaX+deltaY*deltaY)
+		if(distance <= closestDistance):
+			closestDistance = distance
+			closestKey = key
+	return key
 
 # Connect to game server
 GameServer1 = ServerComms(args.hostname, args.port)
@@ -223,6 +244,7 @@ class GlobalState():
 		self.enemies = {}
 		self.friends = {}
 		self.ammoPickups = {}
+		self.healthPickups = {}
 		self.health = {}
 		self.last_refresh = current_milli_time()
 	
@@ -235,18 +257,12 @@ class GlobalState():
 					self.friends[message["Id"]] = message
 				else:
 					self.enemies[message["Id"]] = message
-			else:
-				print("############ MESSAGE NOT PARSED ###############")
+			elif message["Type"] == "AmmoPickup":
+				self.ammoPickups[message["Id"]] = message
+			elif message["Type"] == "HealthPickup":
+				self.healthPickups[message["Id"]] = message
+			elif message["messageType"] == 26:
 				print(message)
-				print("###############################################")
-# 			elif message["Type"] == "AmmoPickup":
-		# 		print("Ammo message:", message)
-		# 		message["timestamp"] = current_milli_time()
-		# 		global_state["ammoPickups"].append(message)
-		# 	elif message_type == "HealthPickup":
-		# 		print("Health pickup message:", message)
-		# 		message["timestamp"] = current_milli_time()
-		# 		global_state["healthPickups"].append(message)
 		except:
 			print("############ MESSAGE NOT PROCESSED ###############")
 			print(message)
@@ -265,30 +281,6 @@ class GlobalState():
 	
 global_state = GlobalState()
 
-
-def messageToGlobal(message):
-	try:
-		message_type = message["Type"]
-		if message_type == "Tank":
-			message["timestamp"] = current_milli_time()
-			global_state["tanks"][message["Id"]] = message
-	# 	elif message_type == "AmmoPickup":
-	# 		print("Ammo message:", message)
-	# 		message["timestamp"] = current_milli_time()
-	# 		global_state["ammoPickups"].append(message)
-	# 	elif message_type == "HealthPickup":
-	# 		print("Health pickup message:", message)
-	# 		message["timestamp"] = current_milli_time()
-	# 		global_state["healthPickups"].append(message)
-	except:
-		print(message)
-		
-def pruneGlobalState(data_ttl = 400):         # 0.5 seconds time to live
-	for k in global_state.keys():
-		for key, val in list(global_state[k].items()):
-			if val["timestamp"] + data_ttl < current_milli_time():
-				del global_state[k][key]
-
 #ACTUAL GAME AFTER INITIALISATION
 import threading
 def GetInfo(stream):
@@ -299,8 +291,20 @@ def GetInfo(stream):
 		global_state.take_message(message)
 		global_state.prune()
 		delta = current_milli_time() - start
+		
+def tankController(stream, name):
+	print("starting Tank Controller")
+	while True:
+		for key in global_state.friends.keys():
+			if global_state.friends[key]["Name"] == name:
+				if global_state.enemies != {}:
+					nearestEnemy = NearestThing(global_state.friends[key],global_state.enemies) 
+					GoToLocation(stream,global_state.friends[key],global_state.enemies[nearestEnemy])
+				else:
+					GoToLocation(stream,global_state.friends[key],{"X":0,"Y":0})
+		time.sleep(0.3)
 
-
+	
 t1 = threading.Thread(target=GetInfo, args=(GameServer1,))
 t1.start()
 t2 = threading.Thread(target=GetInfo, args=(GameServer2,))
@@ -310,8 +314,15 @@ t3.start()
 t4 = threading.Thread(target=GetInfo, args=(GameServer4,))
 t4.start()
 
-def print_separator():
-	print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
+# Tank threads
+FrankThread = threading.Thread(target=tankController, args=(GameServer1,"BigJeff:Frank",))
+FrankThread.start()
+AmyThread = threading.Thread(target=tankController, args=(GameServer2,"BigJeff:Amy",))
+AmyThread.start()
+BertThread = threading.Thread(target=tankController, args=(GameServer3,"Bert",))
+BertThread.start()
+ChrisThread = threading.Thread(target=tankController, args=(GameServer4,"Chris",))
+ChrisThread.start()
 
 def main():
 	while True:
@@ -333,40 +344,4 @@ def main():
 		time.sleep(0.1)
 
 main()
-
-
-"""
-message = {}
-resources = []
-myInfo = {}
-def ResourceView():
-	global message 
-	global resources
-	if "Type" in message:
-		if message["Type"] == "AmmoPickup":
-			for resource in range(0,len(resources)):
-				if resource == message:
-					resources
-def Move():
-	global message 
-	if "Type" in message:
-		if "Name" in message:
-			if message["Name"] == 'SEXY:I_KNOW_IT': 
-				myInfo = message
-				if nearestResource != {}:
-					print("Chasing the ammo")
-					GameServer.sendMessage(ServerMessageTypes.TOGGLEFORWARD)
-				else:
-V					GameServer.sendMessage(ServerMessageTypes.TURNTOHEADING, {'Amount': str((message["TurretHeading"] + 20)%360)})
-
-while True:
-	global message = GameServer.readMessage()
-	global message = GameServer.readMessage()
-
-	
-	NearestResource()
-	Move() 
-"""
-
-
 

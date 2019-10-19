@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Oct 18 23:54:32 2019
+
+@author: conorcoughlan
+"""
+
 #!/usr/bin/python
 
 import json
@@ -7,8 +15,8 @@ import binascii
 import struct
 import argparse
 import random
-import time
-import math
+
+
 class ServerMessageTypes(object):
 	TEST = 0
 	CREATETANK = 1
@@ -78,7 +86,7 @@ class ServerMessageTypes(object):
 		else:
 			return "??UNKNOWN??"
 
-class 
+
 class ServerComms(object):
 	'''
 	TCP comms handler
@@ -154,29 +162,13 @@ class ServerComms(object):
 			binascii.hexlify(message)))
 		return self.ServerSocket.send(message)
 
-def getHeading(x1, y1, x2, y2):
-    heading = math.atan2(y2 - y1, x2 - x1)
-    heading = radianToDegree(heading)
-    heading = (heading - 360) % 360
-    return np.abs(heading)
 
-def radianToDegree(angle):
-    return angle * (180.0 / math.pi);
-
-def calculateDistance(ownX, ownY, otherX, otherY):
-    headingX = otherX - ownX
-    headingY = otherY - ownY
-    return np.sqrt((headingX * headingX) + (headingY * headingY))
-
-def getPickup(tank,pickup):
-    
-    
 # Parse command line args
 parser = argparse.ArgumentParser()
 parser.add_argument('-d', '--debug', action='store_true', help='Enable debug output')
 parser.add_argument('-H', '--hostname', default='127.0.0.1', help='Hostname to connect to')
 parser.add_argument('-p', '--port', default=8052, type=int, help='Port to connect to')
-parser.add_argument('-n', '--name', default='Jeff:RandomBot', help='Name of bot')
+parser.add_argument('-n', '--name', default='TeamA:RandomBot', help='Name of bot')
 args = parser.parse_args()
 
 # Set up console logging
@@ -192,36 +184,41 @@ GameServer = ServerComms(args.hostname, args.port)
 # Spawn our tank
 logging.info("Creating tank with name '{}'".format(args.name))
 GameServer.sendMessage(ServerMessageTypes.CREATETANK, {'Name': args.name})
-healthpickup1 = 0
-healthpickup2 = 0
-ammopickup1 = 0
-ammopickup2 = 0
 # Main loop - read game messages, ignore them and randomly perform actions
-friendlyList = ['Jeff:RandomBot']
-pickupsList = ['Ammo', 'HealthPickup']
 i=0
+
+#def nz(a):
+#    if a == None:
+#        return 0
+
 while True:
 	message = GameServer.readMessage()
-    print(message)
+	print(message)
+#	GameServer.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount': 45})
+    
 	try:
-        objectType = message.get('Type')
-		if objectType in pickupsList:
-			if objectType == Ammo:
-                ammopickup1 = ammopickup2
-                ammopickup2 = message
-            
-			#GameServer.sendMessage(ServerMessageTypes.MOVEFORWARDDISTANCE, {'Amount': 25})
-			#time.sleep(0.1)
-		else:
-			GameServer.sendMessage(ServerMessageTypes.TURNTOHEADING, {'Amount': 20})
-	except:
-		continue
-        #elif i == 10:
-	#	logging.info("Turning randomly")
-	#	GameServer.sendMessage(ServerMessageTypes.TURNTOHEADING, {'Amount': random.randint(0, 359)})
-	#elif i == 15:
-	#	logging.info("Moving randomly")
-	#	GameServer.sendMessage(ServerMessageTypes.MOVEFORWARDDISTANCE, {'Amount': random.randint(0, 10)})
-	#i = i + 1
-	#if i > 20:
-	#	i = 0
+		if message.get('TurretHeading') > 120 :
+			print('moving to 45')
+			GameServer.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount': 45})
+		elif message.get('TurretHeading') < 50 :
+			print('moving to 135')
+			GameServer.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount': 135})
+	except TypeError:
+		GameServer.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount': 45})
+        
+        
+    
+#	if i == 5:
+#		if random.randint(0, 10) > 5:
+#			logging.info("Firing")
+#			GameServer.sendMessage(ServerMessageTypes.FIRE)
+#	elif i == 10:
+#		logging.info("Turning randomly")
+#		GameServer.sendMessage(ServerMessageTypes.TURNTOHEADING, {'Amount': random.randint(0, 359)})
+#	elif i == 15:
+#		logging.info("Moving randomly")
+#		GameServer.sendMessage(ServerMessageTypes.MOVEFORWARDDISTANCE, {'Amount': random.randint(0, 10)})
+#	i = i + 1
+#	if i > 20:
+#		i = 0
+
