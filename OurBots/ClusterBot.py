@@ -335,16 +335,7 @@ def GetInfo(stream,name):
 		global_state.take_message(message,name)
 		global_state.prune()
 		delta = current_milli_time() - start
-
 		
-	
-def randomsearch_ollie(gameserver):
-    coordinates = np.array(([0,75], [35,0], [-35,0], [0,-50]))
-    pick = np.random.randint(0,4)
-    coordinates = coordinates[pick]
-    coordinates = {"X":str(coordinates[0]), "Y":coordinates[1]}
-    GoToLocation(gameserver, gameserver.friends,coordinates)
-    
 def tankController(stream, name):
 	print("starting Tank Controller")
 	while True:
@@ -367,8 +358,9 @@ def tankController(stream, name):
 				elif global_state.enemies != {}:  
 					## If there are emenies go get them!
 					#tracks and SHOOTS the enemy
-					nearest_enemy = NearestThing(global_state.friends[key],global_state.enemies)
-					info = PolarCoordinates(global_state.friends[key],global_state.enemies[nearest_enemy])
+					k_en, v_en = list(global_state.enemies.items())[0]
+					v_us = global_state.friends[key]
+					info = PolarCoordinates(v_us,v_en)
 					stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':int(info['angle'])})
 					#tracks and FOLLOW the enemy
 					if info['distance']>20:
