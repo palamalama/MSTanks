@@ -258,6 +258,13 @@ class GlobalState():
 			args.team+":Chris":None,
 			"":None
 		}
+		self.killoverride = {
+			args.team+":Frank":False,
+			args.team+":Amy":False,
+			args.team+":Bert":False,
+			args.team+":Chris":False,
+			"":None
+		}
 	
 	def take_message(self, message, sender=""):
 		# this method incorporates a message into the global state
@@ -283,6 +290,8 @@ class GlobalState():
 				self.kills[sender] = True
 			elif message.get("messageType",0) == 21:
 				self.snitchtank = message["Id"]
+			elif message.get("messageType",0) == 28:
+				self.killoverride[sender] = True
 			else:
 				pass
 # 				print("###################### MESSAGE #################")
@@ -437,15 +446,20 @@ def tankController(stream, name):
 									GoToLocation(stream,global_state.nameToDict(name),global_state.nameToDict(ally_name))
 							except:
 								pass
-						elif {**global_state.healthPickups, **global_state.ammoPickups} != {}:
+						elif {**global_state.healthPickups, **global_state.ammoPickups} != {} and not global_state.killoverride[name]:
 							## If you have no ammo and know where ammo is go get it
 							nearest_pack = NearestThing(global_state.nameToDict(name),{**global_state.healthPickups, **global_state.ammoPickups})
 							GoToLocation(stream,global_state.nameToDict(name),{**global_state.healthPickups, **global_state.ammoPickups}[nearest_pack])
 
 							if global_state.enemies != {}:  
 								postBirthAbort(stream, name)
+								killoverride[name] = True
 							else:
 								stream.sendMessage(ServerMessageTypes.TOGGLETURRETLEFT)
+						elif global_state.killoverride[name]:
+							enemy = NearestThing(global_state.nameToDict(name),global_state.enemies)
+							GoToLocation(stream,global_state.nameToDict(name),global_state.enemies[enemy])
+							postBirthAbort(stream, name)
 	# 						## If there are emenies go get them!
 	# 						#tracks and SHOOTS the enemy
 	# 						nearest_enemy = NearestThing(global_state.friends[key],global_state.enemies)
