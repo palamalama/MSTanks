@@ -288,6 +288,9 @@ class GlobalState():
 				self.healthPickups[message["Id"]] = message
 			elif message.get("messageType",0) == 24:
 				self.kills[sender] = True
+				self.killoverride[sender] = False
+			elif message.get("messageType",0) == 22:
+				self.killoverride[sender] = False
 			elif message.get("messageType",0) == 21:
 				self.snitchtank = message["Id"]
 			elif message.get("messageType",0) == 28:
@@ -418,7 +421,7 @@ def tankController(stream, name):
 						stream.sendMessage(ServerMessageTypes.FIRE)
 					else:
 						own_snitch=True
-				elif global_state.kills[name]:
+				elif global_state.kills[name] or own_snitch:
 					## If you have killed go score the point
 					goals = {1:{"X":0,"Y":110},2:{"X":0,"Y":-100}}
 					nearest_goal = NearestThing(global_state.friends[key],goals)
@@ -429,6 +432,7 @@ def tankController(stream, name):
 						stream.sendMessage(ServerMessageTypes.TOGGLETURRETLEFT)
 					if arrived:
 						global_state.kills[name] = False
+						own_snitch=False
 				else:
 					if not euthanise(stream, name):
 						if global_state.nameToDict(name)["Health"] == 0:
@@ -453,7 +457,7 @@ def tankController(stream, name):
 
 							if global_state.enemies != {}:  
 								postBirthAbort(stream, name)
-								killoverride[name] = True
+								global_state.killoverride[name] = True
 							else:
 								stream.sendMessage(ServerMessageTypes.TOGGLETURRETLEFT)
 						elif global_state.killoverride[name]:
