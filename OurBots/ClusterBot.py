@@ -374,7 +374,7 @@ def tankController(stream, name):
 					
 					# make the friendly tanks anti-bunch
 					dist, v_all = friendly_dist()
-					if min(dist)<20:
+					if min(dist)<100:
 						ind=np.argmin(dist)
 						tank_pairs = np.array([[1,0],[2,0],[3,0],[2,1],[3,1],[3,2]])
 						close_pair = tank_pairs[ind]

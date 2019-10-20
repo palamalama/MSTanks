@@ -258,8 +258,8 @@ GameServer4 = ServerComms(args.hostname, args.port)
 print("Creating Tank Team: " + args.team)
 GameServer1.sendMessage(ServerMessageTypes.CREATETANK, {'Name': args.team+":Frank"})
 GameServer2.sendMessage(ServerMessageTypes.CREATETANK, {'Name': args.team+":Amy"})
-#GameServer3.sendMessage(ServerMessageTypes.CREATETANK, {'Name': args.team+":Bert"})
-#GameServer4.sendMessage(ServerMessageTypes.CREATETANK, {'Name': args.team+":Chris"})
+GameServer3.sendMessage(ServerMessageTypes.CREATETANK, {'Name': args.team+":Bert"})
+GameServer4.sendMessage(ServerMessageTypes.CREATETANK, {'Name': args.team+":Chris"})
 
 input_streams = [GameServer1,GameServer2,GameServer3,GameServer4]
 
@@ -303,6 +303,7 @@ class GlobalState():
 		self.dictPrune(self.friends)
 		self.dictPrune(self.enemies)
 		self.dictPrune(self.ammoPickups)
+		self.dictPrune(self.healthPickups)
 		self.dictPrune(self.health)
 				
 	def dictPrune(self, dictionary, data_ttl = 1000):
@@ -370,7 +371,86 @@ def tankController(stream, name):
 				if global_state.healthPickups != {}:
 					nearest_HP = NearestThing(me,global_state.healthPickups)
 					hp_coords = PolarCoordinates(me,global_state.healthPickups[nearest_HP])
+				#print(global_state.healthPickups)
+				#print(nearest_HP)
+				#if global_state.healthPickups != {}:
+				#	print(global_state.healthPickups[nearest_HP])
+				#MOVE AROUND CONTROL		
+				try:
+					if global_state.kills[name]:
+						if me["Health"] == 1 and hp_coords["distance"] < 10:
+							GoToLocation(stream,me,global_state.healthPickups[nearest_HP])
+							stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':int(hp_coords['angle'])})
+							print(me["Name"] + " - SCORED - HP COLLECT")
+						
+						elif me["Ammo"] < 2 and ammo_coords["distance"] < 15:
+							GoToLocation(stream,me,global_state.ammoPickups[nearest_ammo])
+							stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':int(ammo_coords['angle'])})
+							print(me["Name"] + " - SCORED - AMMO COLLECT")
+						
+						else:	
+							print(me["Name"] + " - SCORED - GOING HOME")
+							arrived = GoToLocation(stream,me,goals[nearest_goal])
+							stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':int(goal_coords['angle'])})
+							if arrived:
+								global_state.kills[name] = False
+					elif me["Health"] == 1:
+						if global_state.healthPickups != {}:
+							if hp_coords["distance"] < ally_coords["distance"]:
+								print(me["Name"] + " - NO HEALTH - GETTING HEALTH", hp_coords["distance"])
+								if GoToLocation(stream,me,global_state.healthPickups[nearest_HP]):
+									del global_state.healthPickups[nearest_HP]
+							else:
+								print(me["Name"] + " - NO HEALTH - SUICIDE ALLY CLOSEST")
+								GoToLocation(stream,me,allies[nearest_ally])
+						else:
+							print(me["Name"] + " - NO HEALTH - SUICIDE")
+							GoToLocation(stream,me,allies[nearest_ally])
+					elif me["Ammo"] < 2 and global_state.ammoPickups != {}:
+						print(me["Name"] + " - NO AMMO - GETTING AMMO")
+						GoToLocation(stream,me,global_state.ammoPickups[nearest_ammo])
+					else:
+						if allies[nearest_ally]["Health"] == 1:
+							GoToLocation(stream,me,allies[nearest_ally]) 
+						elif global_state.ammoPickups != {} and global_state.healthPickups != {}:
+							if ammo_coords["distance"] < hp_coords["distance"]:
+								print(me["Name"] + " - NOTHING TO DO - GETTING AMMO CLOSEST")
+								if GoToLocation(stream,me,global_state.ammoPickups[nearest_ammo]):
+									del global_state.ammoPickups[nearest_ammo]
+							else:
+								print(me["Name"] + " - NOTHING TO DO - GETTING HP CLOSEST")
+								if GoToLocation(stream,me,global_state.healthPickups[nearest_HP]):
+									del global_state.ammoPickups[nearest_HP]
+						elif global_state.ammoPickups != {}:
+							if GoToLocation(stream,me,global_state.ammoPickups[nearest_ammo]):
+								del global_state.ammoPickups[nearest_ammo]
+							print(me["Name"] + " - NOTHING TO DO - GETTING AMMO")
+						elif global_state.healthPickups != {}:
+							if GoToLocation(stream,me,global_state.healthPickups[nearest_HP]):
+								del global_state.healthPickups[nearest_HP]
+							print(me["Name"] + " - NOTHING TO DO - GETTING HP")
+						elif global_state.enemies != {}:
+							print(me["Name"] + " - NOTHING TO DO - ENEMY WATCH")
+							GoToLocation(stream,me,{"X":0,"Y":0})
+						else:
+							print(me["Name"] + " - NOTHING TO DO - ABSOLUTELY NOTHING IN VIEW")
+							GoToLocation(stream,me,{"X":0,"Y":0})
+				except Exception as e:
+					print(e)	
+				
+				try:
+					if global_state.friends[nearest_ally]["Health"] == 1:
+						print(me["Name"] + " - KILLING ALLY ")
+						stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':ally_coords["angle"]})
+						stream.sendMessage(ServerMessageTypes.FIRE)
+						
+				
+				except Exception as e:
+					print(e)	
 
+
+				time.sleep(0.1)
+"""
 				if global_state.kills[name]:
 					if me["Health"] == 1 and hp_coords["distance"] < 10:
 						GoToLocation(stream,me,global_state.healthPickups[nearest_HP])
@@ -424,8 +504,7 @@ def tankController(stream, name):
 						stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':int(enemy_coords['angle'])})
 						if NoFriendlyFire(key):
 							stream.sendMessage(ServerMessageTypes.FIRE)
-						#tracks and FOLLOW the enemy
-						search_alg(stream, global_state.friends[key])
+						GoToLocation(stream,me,global_state.healthPickups[nearest_HP])	
 						
 				else:
 					if allies[nearest_ally]["Health"] == 1 and ally_coords["distance"] < 40:
@@ -435,8 +514,7 @@ def tankController(stream, name):
 					else:
 						print(me["Name"] + " - DEFAULT - FIND STUFF")
 						search_alg(stream, global_state.friends[key])
-
-		time.sleep(0.3)
+"""
 
 	
 t1 = threading.Thread(target=GetInfo, args=(GameServer1,args.team+":Frank",))
@@ -444,9 +522,9 @@ t1.start()
 t2 = threading.Thread(target=GetInfo, args=(GameServer2,args.team+":Amy",))
 t2.start()
 t3 = threading.Thread(target=GetInfo, args=(GameServer3,args.team+":Bert",))
-#t3.start()
+t3.start()
 t4 = threading.Thread(target=GetInfo, args=(GameServer4,args.team+":Chris",))
-#t4.start()
+t4.start()
 
 # Tank threads
 FrankThread = threading.Thread(target=tankController, args=(GameServer1,args.team+":Frank",))
