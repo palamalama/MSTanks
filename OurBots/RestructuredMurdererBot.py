@@ -208,6 +208,10 @@ def GoToLocation(gameServer,origin, destination):
 	gameServer.sendMessage(ServerMessageTypes.TURNTOHEADING,{"Amount":coordinates["angle"]})
 	gameServer.sendMessage(ServerMessageTypes.TOGGLEFORWARD)
 	return False
+def AveragePosition(origin, target):
+	X = (origin["X"] + target["X"])/2
+	Y = (origin["Y"] + target["Y"])/2
+	return {"X":X,"Y":Y}
 
 def NearestThing(origin,thingsDict):
 	distances = []
@@ -402,7 +406,7 @@ def tankController(stream, name):
 									del global_state.healthPickups[nearest_HP]
 							else:
 								print(me["Name"] + " - NO HEALTH - SUICIDE ALLY CLOSEST")
-								GoToLocation(stream,me,allies[nearest_ally])
+								GoToLocation(stream,me,AveragePosition(me,allies[nearest_ally]))
 						else:
 							print(me["Name"] + " - NO HEALTH - SUICIDE")
 							GoToLocation(stream,me,allies[nearest_ally])
@@ -411,7 +415,8 @@ def tankController(stream, name):
 						GoToLocation(stream,me,global_state.ammoPickups[nearest_ammo])
 					else:
 						if allies[nearest_ally]["Health"] == 1:
-							GoToLocation(stream,me,allies[nearest_ally]) 
+							print(me["Name"] + " - NOTHING TO DO - SUICIDE")
+							GoToLocation(stream,me,AveragePosition(me,allies[nearest_ally])) 
 						elif global_state.ammoPickups != {} and global_state.healthPickups != {}:
 							if ammo_coords["distance"] < hp_coords["distance"]:
 								print(me["Name"] + " - NOTHING TO DO - GETTING AMMO CLOSEST")
@@ -444,7 +449,7 @@ def tankController(stream, name):
 						stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':ally_coords["angle"]})
 						stream.sendMessage(ServerMessageTypes.FIRE)
 						
-				
+					 
 				except Exception as e:
 					print(e)	
 
