@@ -218,19 +218,26 @@ def GoToLocation(gameServer,origin, destination, fucksItUUP = False):
 		gameServer.sendMessage(ServerMessageTypes.STOPMOVE)
 		return True
 	gameServer.sendMessage(ServerMessageTypes.TURNTOHEADING,{"Amount":coordinates["angle"]})
-	if random.random() > 0.05 and fucksItUUP:
+	if random.random() < 0.05 and fucksItUUP:
 		gameServer.sendMessage(ServerMessageTypes.TOGGLEREVERSE)
 	else:
 		gameServer.sendMessage(ServerMessageTypes.TOGGLEFORWARD)
 	return False
 
 def GoToLocationAlongWall(gameServer,origin, destination, fucksItUUP = False):
-	coordinates = PolarCoordinates(origin,destination)
-# 	print("my coordinates",origin["X"],origin["Y"])
-# 	print("origin, heading",origin["Heading"])
-# 	print("desired heading",coordinates["angle"])
+	if abs(origin["X"]) > 60:
+		if abs(origin["Y"] - destination["Y"]) <= 3:
+			coordinates = PolarCoordinates(origin,destination)
+		else:
+			coordinates = PolarCoordinates(origin,{"X":64, "Y":destination["Y"]})
+	else:
+		if abs(origin["Y"] - destination["Y"]) <= 20:
+			coordinates = PolarCoordinates(origin,destination)
+		else:
+			sign = origin["X"]/abs(origin["X"])
+			coordinates = PolarCoordinates(origin,{"X":sign*60, "Y":origin["Y"]-20})
 	if(coordinates["distance"] <= 3):
-		gameServer.sendMessage(ServerMessageTypes.STOPMOVE)
+# 		gameServer.sendMessage(ServerMessageTypes.STOPMOVE)
 		return True
 	gameServer.sendMessage(ServerMessageTypes.TURNTOHEADING,{"Amount":coordinates["angle"]})
 	if random.random() > 0.05 and fucksItUUP:
@@ -280,15 +287,15 @@ class GlobalState():
 			"":False
 		}
 		self.boxes = {
-			args.team+":Frank":[{"Y":-70,"X":-40},{"Y":-90,"X":40}],
-			args.team+":Amy":[{"Y":-70,"X":-40},{"Y":-90,"X":40}],
-			args.team+":Bert":[{"Y":-70,"X":-40},{"Y":-90,"X":40}],
-			args.team+":Chris":[{"Y":-70,"X":-40},{"Y":-90,"X":40}],
+# 			args.team+":Frank":[{"Y":-70,"X":-40},{"Y":-90,"X":40}],
+# 			args.team+":Amy":[{"Y":-70,"X":-40},{"Y":-90,"X":40}],
+# 			args.team+":Bert":[{"Y":-70,"X":-40},{"Y":-90,"X":40}],
+# 			args.team+":Chris":[{"Y":-70,"X":-40},{"Y":-90,"X":40}],
 			
-# 			args.team+":Frank":[{"Y":-70,"X":20},{"Y":-80,"X":40}],
-# 			args.team+":Amy":[{"Y":-80,"X":0},{"Y":-90,"X":20}],
-# 			args.team+":Bert":[{"Y":-80,"X":-20},{"Y":-90,"X":0}],
-# 			args.team+":Chris":[{"Y":-70,"X":-40},{"Y":-80,"X":-20}],
+			args.team+":Frank":[{"Y":-70,"X":20},{"Y":-80,"X":40}],
+			args.team+":Amy":[{"Y":-80,"X":0},{"Y":-90,"X":20}],
+			args.team+":Bert":[{"Y":-80,"X":-20},{"Y":-90,"X":0}],
+			args.team+":Chris":[{"Y":-70,"X":-40},{"Y":-80,"X":-20}],
 		}
 		self.euthaniser = {
 			args.team+":Frank":None,
@@ -297,6 +304,14 @@ class GlobalState():
 			args.team+":Chris":None,
 			"":None
 		}
+		self.randLocations = {
+			args.team+":Frank":None,
+			args.team+":Amy":None,
+			args.team+":Bert":None,
+			args.team+":Chris":None,
+			"":None
+		}
+		self.counter = 40
 	
 	def take_message(self, message, sender=""):
 		# this method incorporates a message into the global state
@@ -343,17 +358,25 @@ class GlobalState():
 global_state = GlobalState()
 
 def randomWalk(stream, name):
-	box = global_state.boxes[name]
-	rand_X = random.randint(box[0]["X"], box[1]["X"])
-	rand_Y = random.randint(box[1]["Y"], box[0]["Y"])
-	return GoToLocation(stream,global_state.nameToDict(name),{"Y":rand_X,"X":rand_Y}, fucksItUUP = True)
+	if global_state.counter > 40:
+		box = global_state.boxes[name]
+		rand_X = random.randint(box[0]["X"], box[1]["X"])
+		rand_Y = random.randint(box[1]["Y"], box[0]["Y"])
+		global_state.randLocations[name] = {"Y":rand_X,"X":rand_Y}
+		if global_state.counter > 50:
+			global_state.counter = 0
+	global_state.counter += 1
+	if global_state.randLocations[name] == None:
+		return GoToLocation(stream,global_state.nameToDict(name),{"Y":0,"X":0}, fucksItUUP = True)
+	return GoToLocation(stream,global_state.nameToDict(name),global_state.randLocations[name], fucksItUUP = True)
+	
 	
 def getToBox(stream, name):
 	box = global_state.boxes[name]
 	middle = {"X":(box[0]["X"] + box[1]["X"])/2.0, "Y":(box[0]["Y"] + box[1]["Y"])/2.0}
 	if global_state.nameToDict(name) == None:
 		return False
-	return GoToLocation(stream,global_state.nameToDict(name),middle)
+	return GoToLocationAlongWall(stream,global_state.nameToDict(name),middle)
 
 def isNotInBox(name):
 	box = global_state.boxes[name]
@@ -420,6 +443,8 @@ def tankController(stream, name):
 						arrived = GoToLocation(stream,global_state.friends[key],goals[nearest_goal])
 						if arrived:
 							global_state.kills[name] = False
+							gameServer.sendMessage(ServerMessageTypes.TURNTOHEADING,{"Amount":270})
+							time.sleep(2)
 					else:
 						if global_state.nameToDict(name)["Health"] == 0:
 							global_state.euthaniser[name] = None
