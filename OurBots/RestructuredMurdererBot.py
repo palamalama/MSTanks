@@ -451,6 +451,7 @@ def tankController(stream, name):
 					elif global_state.enemies != {}:
 						print(me["Name"] + " - KILLING ENEMY ")
 						stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':enemy_coords["angle"]})
+						if 
 						stream.sendMessage(ServerMessageTypes.FIRE)
 						
 								
