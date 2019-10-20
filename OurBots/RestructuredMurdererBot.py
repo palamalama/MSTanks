@@ -229,7 +229,7 @@ def NoFriendlyFire(tankKey):
 		if(key != tankKey):
 			coordinates = PolarCoordinates(tankInfo,global_state.friends[key])
 			angle = math.sqrt((coordinates["angle"]-tankInfo["TurretHeading"])**2)
-			requiredAngle = math.atan(1/(coordinates["distance"]-4.5))*180/math.pi
+			requiredAngle = math.atan(10/(coordinates["distance"]-4.5))*180/math.pi
 			if angle < requiredAngle : 
 				return False
 	return True
@@ -448,7 +448,7 @@ def tankController(stream, name):
 						print(me["Name"] + " - KILLING ALLY ")
 						stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':ally_coords["angle"]})
 						stream.sendMessage(ServerMessageTypes.FIRE)
-											
+						
 					 
 				except Exception as e:
 					print(e)	
