@@ -314,7 +314,7 @@ def tankController(stream, name):
 			if global_state.friends[key]["Name"] == name:
 				if global_state.kills[name]:
 					## If you have killed go score the point
-					goals = {1:{"X":0,"Y":110},2:{"X":0,"Y":-110}}
+					goals = {1:{"X":0,"Y":110},2:{"X":0,"Y":-100}}
 					nearest_goal = NearestThing(global_state.friends[key],goals)
 					arrived = GoToLocation(stream,global_state.friends[key],goals[nearest_goal])
 					if arrived:

@@ -274,6 +274,7 @@ input_streams = [GameServer1,GameServer2,GameServer3,GameServer4]
 class GlobalState():
 	def __init__(self):
 		self.enemies = {}
+		self.old_enemies = {}
 		self.friends = {}
 		self.ammoPickups = {}
 		self.healthPickups = {}
@@ -321,7 +322,15 @@ class GlobalState():
 				if message["Name"].split(":")[0] == args.team:
 					self.friends[message["Id"]] = message
 				else:
-					self.enemies[message["Id"]] = message
+					print("finding enemies")
+					if message["Id"] not in self.enemies:
+						print("first enemy found")
+						self.enemies[message["Id"]] = message
+						self.old_enemies[message["Id"]] = self.enemies[message["Id"]]
+					else:
+						print("updating enemy")
+						self.old_enemies[message["Id"]] = self.enemies[message["Id"]]
+						self.enemies[message["Id"]] = message
 			elif message.get("Type",0) == "AmmoPickup":
 				self.ammoPickups[message["Id"]] = message
 			elif message.get("Type",0) == "HealthPickup":
@@ -333,7 +342,8 @@ class GlobalState():
 				print("###################### MESSAGE #################")
 				print(message)
 		except:
-			pass
+			print("####################### ERROR ########################")
+			print(message)
 # 			print("############ MESSAGE NOT PROCESSED ###############")
 # 			print(message)
 # 			print("##################################################")
@@ -383,6 +393,18 @@ def isNotInBox(name):
 	tank = global_state.nameToDict(name)
 	return tank["X"] > box[1]["X"] or tank["X"] < box[0]["X"] or tank["Y"] < box[1]["Y"] or tank["Y"] > box[0]["Y"]
 
+def search_alg(stream, tank):
+	at_center = GoToLocation(stream,tank,{"X":0,"Y":0})
+	stream.sendMessage(ServerMessageTypes.TOGGLETURRETLEFT)
+	
+def extrapolate(tank, old_target, new_target):
+	dist = PolarCoordinates(tank,new_target)["distance"]
+	deltaX = new_target["X"] - old_target["X"]
+	deltaY = new_target["Y"] - old_target["Y"]
+	newX = new_target["X"] + deltaX*0.1*dist
+	newY = new_target["Y"] + deltaY*0.1*dist
+	return {"X":newX, "Y":newY}
+
 def euthanise(stream, name):
 # 	old_angle = 0
 	for key in list(global_state.friends.keys()):
@@ -392,7 +414,7 @@ def euthanise(stream, name):
 			angle = PolarCoordinates(global_state.nameToDict(name),ally)["angle"]
 			stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':int(angle)})
 
-			if abs(int(angle) - global_state.nameToDict(name)["TurretHeading"]) < 6:
+			if abs(int(angle) - global_state.nameToDict(name)["TurretHeading"]) < 8:
 				stream.sendMessage(ServerMessageTypes.STOPMOVE)
 				stream.sendMessage(ServerMessageTypes.STOPTURN)
 				stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':int(angle)})
@@ -404,16 +426,18 @@ def euthanise(stream, name):
 def postBirthAbort(stream, name):
 	if global_state.enemies == {}:
 		return False
-	enemy = global_state.enemies[NearestThing(global_state.nameToDict(name),global_state.enemies)]
-
-	info = PolarCoordinates(global_state.nameToDict(name),enemy)
+	enemy = NearestThing(global_state.nameToDict(name),global_state.enemies)
+	enemy_pos = extrapolate(global_state.nameToDict(name), global_state.old_enemies[enemy], global_state.enemies[enemy])
+	print(enemy_pos)
+	info = PolarCoordinates(global_state.nameToDict(name),enemy_pos)
 	angle = info["angle"]
 	dist = info["distance"]
+	stream.sendMessage(ServerMessageTypes.TURNTOHEADING, {'Amount':int(angle)})
 	stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':int(angle)})
 
 	if abs(int(angle) - global_state.nameToDict(name)["TurretHeading"]) < 6 and dist < 35:
 		stream.sendMessage(ServerMessageTypes.STOPMOVE)
-		stream.sendMessage(ServerMessageTypes.STOPTURN)
+# 		stream.sendMessage(ServerMessageTypes.STOPTURN)
 		stream.sendMessage(ServerMessageTypes.TURNTURRETTOHEADING, {'Amount':int(angle)})
 		stream.sendMessage(ServerMessageTypes.FIRE)
 	return True
@@ -438,17 +462,23 @@ def tankController(stream, name):
 				if not euthanise(stream, name):
 					if global_state.kills[name]:
 						## If you have killed go score the point
-						goals = {1:{"X":0,"Y":110},2:{"X":0,"Y":-110}}
+						goals = {1:{"X":0,"Y":100},2:{"X":0,"Y":-100}}
 						nearest_goal = NearestThing(global_state.friends[key],goals)
 						arrived = GoToLocation(stream,global_state.friends[key],goals[nearest_goal])
 						if arrived:
 							global_state.kills[name] = False
-							gameServer.sendMessage(ServerMessageTypes.TURNTOHEADING,{"Amount":270})
-							time.sleep(2)
+							stream.sendMessage(ServerMessageTypes.TURNTOHEADING,{"Amount":270})
+							stream.sendMessage(ServerMessageTypes.TOGGLEFORWARD)
+					elif global_state.nameToDict(name)["Ammo"] <= 3:
+						if global_state.ammoPickups != {}:
+							nearest_ammo = NearestThing(global_state.nameToDict(name),global_state.ammoPickups)
+							GoToLocation(stream,global_state.nameToDict(name),global_state.ammoPickups[nearest_ammo])
+						else:
+							search_alg(stream, global_state.nameToDict(name))
 					else:
 						if global_state.nameToDict(name)["Health"] == 0:
 							global_state.euthaniser[name] = None
-						elif global_state.nameToDict(name)["Health"] == 1 or global_state.nameToDict(name)["Ammo"] < 3:
+						elif global_state.nameToDict(name)["Health"] == 1:
 							stream.sendMessage(ServerMessageTypes.STOPMOVE)
 							allies = global_state.friends.copy()
 							del allies[key]
